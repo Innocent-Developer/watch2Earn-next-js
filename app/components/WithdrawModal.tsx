@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState } from 'react'
-import { X, DollarSign, CreditCard, Bank } from 'lucide-react'
+import { X, DollarSign, CreditCard, Building } from 'lucide-react'
 
 interface WithdrawModalProps {
   isOpen: boolean
@@ -217,4 +217,4 @@ const WithdrawModal = ({ isOpen, onClose }: WithdrawModalProps) => {
   )
 }
 
-export default WithdrawModal 
+export default WithdrawModal

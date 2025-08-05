@@ -31,7 +31,7 @@ const Header = () => {
             {/* Using a placeholder image for the logo */}
             <div className="h-10 w-10 relative">
               <Image 
-                src="https://placehold.co/40x40/6b21a8/ffffff?text=UK" 
+                src="https://res.cloudinary.com/dha65z0gy/image/upload/v1754294658/qgi0crp5afdl5acfmqty.png" 
                 alt="Logo" 
                 width={40} 
                 height={40} 
@@ -60,4 +60,4 @@ const Header = () => {
   )
 }
 
-export default Header 
+export default Header
