@@ -1,12 +1,12 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import { CreditCard, TrendingUp, TrendingDown } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import WithdrawModal from '../components/WithdrawModal'
 import DepositModal from '../components/DepositModal'
 
-const WalletPage = () => {
+const WalletPageContent = () => {
   const searchParams = useSearchParams()
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false)
@@ -132,4 +132,10 @@ const WalletPage = () => {
   )
 }
 
-export default WalletPage 
+const WalletPage = () => (
+  <Suspense fallback={<div>Loading...</div>}>
+    <WalletPageContent />
+  </Suspense>
+)
+
+export default WalletPage
