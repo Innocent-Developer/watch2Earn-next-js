@@ -2,7 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { Home, Info, Wallet, Award, Settings } from 'lucide-react'
+import { Home, Info, Wallet, Award, Settings, Users } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 
 const Footer = () => {
@@ -10,8 +10,8 @@ const Footer = () => {
 
   const navItems = [
     { name: 'Home', icon: Home, href: '/' },
-    { name: 'About', icon: Info, href: '/about' },
     { name: 'Wallet', icon: Wallet, href: '/wallet' },
+    { name: 'Referrals', icon: Users, href: '/referrals' },
     { name: 'Level', icon: Award, href: '/level' },
     { name: 'Settings', icon: Settings, href: '/settings' },
   ]

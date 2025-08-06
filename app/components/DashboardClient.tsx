@@ -9,26 +9,51 @@ import { getUserData, UserData } from '../utils/userStorage'
 const DashboardClient = () => {
   const router = useRouter()
   const [user, setUser] = useState<UserData | null>(null)
+  const [userData, setUserData] = useState<any>(null)
+
+  const fetchUserData = async (uid: Number) => {
+    try {
+      const response = await fetch(`https://watch2earn-vie97.ondigitalocean.app/api/admin/user/${uid}`)
+      const data = await response.json()
+      if (data.success) {
+        setUserData(data.data.user)
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error)
+    }
+  }
 
   useEffect(() => {
-    const userData = getUserData()
-    if (!userData) {
+    const localUserData = getUserData()
+    if (!localUserData) {
       router.replace("/login")
     } else {
-      setUser(userData)
+      setUser(localUserData)
+      if (localUserData.uid) {
+        fetchUserData(localUserData.uid)
+      }
     }
-  }, [router])
 
-  if (!user) {
+    // Refresh data every 30 seconds
+    const interval = setInterval(() => {
+      if (user?.uid) {
+        fetchUserData(user.uid)
+      }
+    }, 30000)
+
+    return () => clearInterval(interval)
+  }, [router, user?.uid])
+
+  if (!user || !userData) {
     return <div>Loading...</div>
   }
 
-  // Use real user data from localStorage
+  // Use real user data from API
   const dashboardData = {
-    currentIncome: user.totalBalance ?? '0.00',
-    totalWithdraw: user.totalWithdrawals ?? '0.00',
-    upliner: user.inviteCode ?? '',
-    recentWithdrawal: `User ${user.name} Withdraw $${user.totalWithdrawals} USDT.`,
+    currentIncome: userData.totalBalance ?? '0.00',
+    totalWithdraw: userData.totalWithdrawals ?? '0.00',
+    upliner: userData.inviteCode ?? '',
+    recentWithdrawal: `User ${userData.name} Withdraw $${userData.totalWithdrawals} USDT.`,
   }
 
   const mainActions = [
