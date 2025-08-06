@@ -1,10 +1,11 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
+import { setUserData, isUserLoggedIn } from '../utils/userStorage'
 
 const LoginPage = () => {
   const router = useRouter()
@@ -15,6 +16,14 @@ const LoginPage = () => {
     rememberMe: false
   })
   const [isLoading, setIsLoading] = useState(false)
+  const [message, setMessage] = useState("")
+
+  useEffect(() => {
+    // If user data exists, redirect to dashboard
+    if (isUserLoggedIn()) {
+      router.replace("/")
+    }
+  }, [router])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target
@@ -26,26 +35,26 @@ const LoginPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    // Simple validation - just check if fields are not empty
-    if (!formData.email.trim() || !formData.password.trim()) {
-      alert('Please enter both email and password')
-      return
-    }
-
     setIsLoading(true)
-    
-    // Simulate API call delay
-    setTimeout(() => {
-      setIsLoading(false)
-      
-      // Store login state in localStorage for demo
-      localStorage.setItem('isLoggedIn', 'true')
-      localStorage.setItem('userEmail', formData.email)
-      
-      // Redirect to home page
-      router.push('/')
-    }, 1500)
+    setMessage("")
+    try {
+      const res = await fetch("https://watch2earn-vie97.ondigitalocean.app/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      })
+      const data = await res.json()
+      if (res.ok && data.user) {
+        // Use utility function to store user data
+        setUserData(data.user)
+        router.replace("/")
+      } else {
+        setMessage(data.message || "Login failed")
+      }
+    } catch {
+      setMessage("Login failed")
+    }
+    setIsLoading(false)
   }
 
   return (
@@ -54,7 +63,7 @@ const LoginPage = () => {
         <div className="text-center">
           <div className="mx-auto h-20 w-20 mb-6 relative">
             <Image 
-              src="https://placehold.co/80x80/6b21a8/ffffff?text=UK" 
+              src="/app/favicon.ico" 
               alt="UK ADS Logo" 
               width={80} 
               height={80} 
@@ -161,11 +170,13 @@ const LoginPage = () => {
           </button>
         </form>
 
+        {message && <p className="mt-4 text-center text-red-500">{message}</p>}
+
         <div className="text-center">
           <p className="text-sm text-gray-600">
             Don't have an account?{' '}
             <Link 
-              href="/register" 
+              href="/signup" 
               className="font-medium text-primary hover:text-dark-purple transition-colors"
             >
               Sign up here
@@ -177,4 +188,4 @@ const LoginPage = () => {
   )
 }
 
-export default LoginPage 
+export default LoginPage

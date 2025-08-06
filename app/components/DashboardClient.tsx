@@ -1,27 +1,34 @@
 "use client"
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { DollarSign, Wallet, Gift, Download, Video, Award, Users, Share2 } from 'lucide-react'
+import { getUserData, UserData } from '../utils/userStorage'
 
 const DashboardClient = () => {
   const router = useRouter()
+  const [user, setUser] = useState<UserData | null>(null)
 
   useEffect(() => {
-    // Check if user is logged in
-    const isLoggedIn = localStorage.getItem('isLoggedIn')
-    if (!isLoggedIn) {
-      router.push('/login')
+    const userData = getUserData()
+    if (!userData) {
+      router.replace("/login")
+    } else {
+      setUser(userData)
     }
   }, [router])
 
-  // Mock data
+  if (!user) {
+    return <div>Loading...</div>
+  }
+
+  // Use real user data from localStorage
   const dashboardData = {
-    currentIncome: '0.00',
-    totalWithdraw: '0.00',
-    upliner: 'LZSUG9',
-    recentWithdrawal: 'User **** Withdraw $16.00 USDT.',
+    currentIncome: user.totalBalance ?? '0.00',
+    totalWithdraw: user.totalWithdrawals ?? '0.00',
+    upliner: user.inviteCode ?? '',
+    recentWithdrawal: `User ${user.name} Withdraw $${user.totalWithdrawals} USDT.`,
   }
 
   const mainActions = [
@@ -88,4 +95,4 @@ const DashboardClient = () => {
   )
 }
 
-export default DashboardClient 
+export default DashboardClient

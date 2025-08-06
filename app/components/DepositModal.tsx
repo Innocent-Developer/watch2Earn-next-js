@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { X, Copy, CreditCard, DollarSign } from 'lucide-react'
+import { getUserData } from '../utils/userStorage'
 
 interface DepositModalProps {
   isOpen: boolean
@@ -18,10 +19,11 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [error, setError] = useState('')
 
   const accountDetails = {
     accountNumber: '03254472055',
-    accountName: 'UK ADS Business',
+    accountName: 'UK ADS Business', 
     bankName: 'EasyPaisa / JazzCash',
     accountType: 'Mobile Account'
   }
@@ -47,10 +49,32 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-    
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false)
+    setError('')
+
+    try {
+      const userData = getUserData()
+      if (!userData?.uid) {
+        setError('Please login to submit a deposit request')
+        return
+      }
+
+      const response = await fetch('https://watch2earn-vie97.ondigitalocean.app/api/deposite', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...formData,
+          uid: userData.uid
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to submit deposit request')
+      }
+
       alert('Deposit request submitted successfully! We will verify and credit your account within 24 hours.')
       onClose()
       setFormData({
@@ -60,7 +84,11 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
         senderName: '',
         senderPhone: ''
       })
-    }, 2000)
+    } catch (err: any) {
+      setError(err.message || 'Failed to submit deposit request')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (!isOpen) return null
@@ -115,6 +143,12 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {error && (
+            <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
+
           <div>
             <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">
               Deposit Amount (PKR)
@@ -235,4 +269,4 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
   )
 }
 
-export default DepositModal 
+export default DepositModal
