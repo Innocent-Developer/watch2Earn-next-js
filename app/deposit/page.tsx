@@ -1,15 +1,18 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { CreditCard } from 'lucide-react'
-import DepositModal from '../components/DepositModal'
 
 /**
  * Renders the Deposit page component.
  * This page displays information about a digital business card and a 'Buy Now' button.
  */
 const DepositPage = () => {
-  const [isDepositModalOpen, setIsDepositModalOpen] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   // Mock data for the business card. This would typically come from an API or state management.
   const cardData = {
@@ -18,6 +21,11 @@ const DepositPage = () => {
     validity: 'Life Time',
     referralBonus: 'Upto 5 Level',
     dailyLimit: '5 Ads',
+  }
+
+  const handleBuyNow = () => {
+    // For now, just show an alert instead of opening modal
+    alert('Deposit functionality will be implemented soon! Please contact support for deposits.')
   }
 
   return (
@@ -59,13 +67,15 @@ const DepositPage = () => {
             </div>
           </div>
         </div>
-        {/* 'Buy Now' button */}
-        <button 
-          onClick={() => setIsDepositModalOpen(true)}
-          className="bg-white text-primary font-bold py-3 px-8 rounded-full shadow-lg transition-transform transform hover:scale-105 hover:bg-light-purple focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
-        >
-          Buy Now
-        </button>
+        {/* 'Buy Now' button - Only render when mounted */}
+        {isMounted && (
+          <button 
+            onClick={handleBuyNow}
+            className="bg-white text-primary font-bold py-3 px-8 rounded-full shadow-lg transition-transform transform hover:scale-105 hover:bg-light-purple focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+          >
+            Buy Now
+          </button>
+        )}
       </div>
 
       {/* Note about deposit method */}
@@ -73,11 +83,24 @@ const DepositPage = () => {
         <p>Note: Deposit Only With Your Registered Number.</p>
       </div>
 
-      {/* Deposit Modal */}
-      <DepositModal 
-        isOpen={isDepositModalOpen} 
-        onClose={() => setIsDepositModalOpen(false)} 
-      />
+      {/* Contact Information */}
+      <div className="bg-white rounded-xl p-6 shadow-lg">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Contact Information</h3>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-gray-600">Account Number:</span>
+            <span className="font-semibold">{cardData.cardNumber}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-gray-600">Account Name:</span>
+            <span className="font-semibold">UK ADS Business</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-gray-600">Payment Method:</span>
+            <span className="font-semibold">EasyPaisa / JazzCash</span>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

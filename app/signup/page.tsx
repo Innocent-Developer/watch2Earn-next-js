@@ -1,13 +1,13 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, Mail, Lock, User, Phone, Gift } from 'lucide-react'
 import { setUserData, isUserLoggedIn, getUserData } from '../utils/userStorage'
 
-const SignupPage = () => {
+const SignupPageContent = () => {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [showPassword, setShowPassword] = useState(false)
@@ -15,7 +15,7 @@ const SignupPage = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    phone: '',
+    phoneNumber: '',
     password: '',
     confirmPassword: '',
     inviteCode: '',
@@ -48,7 +48,7 @@ const SignupPage = () => {
     if (userData?.name) {
       setFormData(prev => ({
         ...prev,
-        name: userData.name
+        name: userData.name || ''
       }))
       setIsNameFromUserData(true)
     }
@@ -82,7 +82,7 @@ const SignupPage = () => {
       setMessage("Email is required")
       return false
     }
-    if (!formData.phone.trim()) {
+    if (!formData.phoneNumber.trim()) {
       setMessage("Phone number is required")
       return false
     }
@@ -111,20 +111,27 @@ const SignupPage = () => {
       return
     }
 
+    // Prepare the request data
+    const requestData = {
+      name: formData.name,
+      email: formData.email,
+      phoneNumber: formData.phoneNumber,
+      password: formData.password,
+      inviteCode: formData.inviteCode || undefined
+    }
+
+    console.log('Sending signup request:', requestData)
+
     try {
       const response = await fetch("https://watch2earn-vie97.ondigitalocean.app/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          phoneNumber: formData.phone,
-          password: formData.password,
-          inviteCode: formData.inviteCode || undefined
-        }),
+        body: JSON.stringify(requestData),
       })
 
+      console.log('Response status:', response.status)
       const data = await response.json()
+      console.log('Response data:', data)
 
       if (response.ok && data.user) {
         setMessageType('success')
@@ -137,9 +144,10 @@ const SignupPage = () => {
         }, 2000)
       } else {
         setMessageType('error')
-        setMessage(data.message || "Registration failed. Please try again.")
+        setMessage(data.message || `Registration failed. Status: ${response.status}`)
       }
     } catch (error) {
+      console.error('Signup error:', error)
       setMessageType('error')
       setMessage("Registration failed. Please check your connection and try again.")
     }
@@ -153,7 +161,7 @@ const SignupPage = () => {
         <div className="text-center">
           <div className="mx-auto h-20 w-20 mb-6 relative">
             <Image 
-              src="/app/favicon.ico" 
+              src="/favicon.ico" 
               alt="UK ADS Logo" 
               width={80} 
               height={80} 
@@ -228,16 +236,16 @@ const SignupPage = () => {
 
             {/* Phone Field */}
             <div className="relative">
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-2">
                 Phone Number
               </label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <input
-                  id="phone"
-                  name="phone"
+                  id="phoneNumber"
+                  name="phoneNumber"
                   type="tel"
-                  value={formData.phone}
+                  value={formData.phoneNumber}
                   onChange={handleInputChange}
                   autoComplete="tel"
                   required
@@ -397,6 +405,18 @@ const SignupPage = () => {
         </div>
       </div>
     </div>
+  )
+}
+
+const SignupPage = () => {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    }>
+      <SignupPageContent />
+    </Suspense>
   )
 }
 

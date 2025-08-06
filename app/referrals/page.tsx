@@ -26,6 +26,7 @@ const ReferralsPage = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [sharing, setSharing] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
   const [referralStats, setReferralStats] = useState({
     totalReferrals: 0,
     activeReferrals: 0,
@@ -34,6 +35,7 @@ const ReferralsPage = () => {
   })
 
   useEffect(() => {
+    setIsMounted(true)
     const userData = getUserData()
     if (!userData) {
       router.replace("/login")

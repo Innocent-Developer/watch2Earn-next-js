@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { 
   generateReferralLink, 
@@ -11,7 +11,7 @@ import {
   shareReferralLink
 } from '../utils/referralUtils'
 
-const TestReferralPage = () => {
+const TestReferralPageContent = () => {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [testCode, setTestCode] = useState('TEST123')
@@ -198,6 +198,18 @@ const TestReferralPage = () => {
         </ol>
       </div>
     </div>
+  )
+}
+
+const TestReferralPage = () => {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    }>
+      <TestReferralPageContent />
+    </Suspense>
   )
 }
 
