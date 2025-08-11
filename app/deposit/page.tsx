@@ -17,7 +17,7 @@ const DepositPage = () => {
   // Mock data for the business card. This would typically come from an API or state management.
   const cardData = {
     cardNumber: '03254472055',
-    price: '699 PKR',
+    price: '400 PKR',
     validity: 'Life Time',
     referralBonus: 'Upto 5 Level',
     dailyLimit: '5 Ads',
@@ -41,7 +41,7 @@ const DepositPage = () => {
           <div className="flex items-center">
             {/* Icon for the business card */}
             <CreditCard className="h-10 w-10 text-white opacity-75 mr-4" />
-            <h2 className="text-2xl font-bold">UK ADS Business Card</h2>
+            <h2 className="text-2xl font-bold">primeWatcher Business Card</h2>
           </div>
           {/* Grid to display the card details */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">

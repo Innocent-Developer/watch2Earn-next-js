@@ -1,9 +1,8 @@
 "use client"
 
 import React, { useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
-import { Bell, Menu, X, User } from 'lucide-react'
+import { Bell, Menu, X, User, DollarSign } from 'lucide-react'
 import SideDrawer from './SideDrawer'
 
 const Header = () => {
@@ -28,17 +27,11 @@ const Header = () => {
         {/* Center with logo */}
         <Link href="/" className="flex-shrink-0">
           <div className="flex items-center">
-            {/* Using a placeholder image for the logo */}
-            <div className="h-10 w-10 relative">
-              <Image 
-                src="https://res.cloudinary.com/dha65z0gy/image/upload/v1754294658/qgi0crp5afdl5acfmqty.png" 
-                alt="Logo" 
-                width={40} 
-                height={40} 
-                className="rounded-full"
-              />
+            {/* Using an icon instead of external image for reliability */}
+            <div className="h-10 w-10 bg-white rounded-full flex items-center justify-center">
+              <DollarSign className="h-6 w-6 text-primary" />
             </div>
-            <h1 className="ml-2 text-xl font-bold tracking-wider hidden sm:block">Watch2earn</h1>
+            <h1 className="ml-2 text-xl font-bold tracking-wider hidden sm:block">primeWatcher</h1>
           </div>
         </Link>
         

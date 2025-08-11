@@ -10,6 +10,7 @@ export interface UserData {
   totalWithdrawals?: string
   inviteCode?: string
   level?: string
+  plan?: string
   avatar?: string
   lastLogin?: string
   isActive?: boolean

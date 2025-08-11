@@ -10,16 +10,32 @@ const DashboardClient = () => {
   const router = useRouter()
   const [user, setUser] = useState<UserData | null>(null)
   const [userData, setUserData] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const fetchUserData = async (uid: Number) => {
+  const fetchUserData = async (uid: number) => {
     try {
+      setError(null)
       const response = await fetch(`https://watch2earn-vie97.ondigitalocean.app/api/admin/user/${uid}`)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
       const data = await response.json()
       if (data.success) {
         setUserData(data.data.user)
+      } else {
+        throw new Error(data.message || 'Failed to fetch user data')
       }
     } catch (error) {
       console.error('Error fetching user data:', error)
+      setError('Failed to load user data. Using local data.')
+      // Use local user data as fallback
+      const localUserData = getUserData()
+      if (localUserData) {
+        setUserData(localUserData)
+      }
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -27,33 +43,55 @@ const DashboardClient = () => {
     const localUserData = getUserData()
     if (!localUserData) {
       router.replace("/login")
-    } else {
-      setUser(localUserData)
-      if (localUserData.uid) {
-        fetchUserData(localUserData.uid)
-      }
+      return
     }
+    
+    setUser(localUserData)
+    
+    // Use local data as initial fallback
+    setUserData(localUserData)
+    
+    if (localUserData.uid) {
+      fetchUserData(localUserData.uid)
+    } else {
+      setIsLoading(false)
+    }
+  }, [router])
 
-    // Refresh data every 30 seconds
-    const interval = setInterval(() => {
-      if (user?.uid) {
-        fetchUserData(user.uid)
-      }
-    }, 30000)
+  // Remove the interval to prevent infinite loops
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     if (user?.uid) {
+  //       fetchUserData(user.uid)
+  //     }
+  //   }, 30000)
+  //   return () => clearInterval(interval)
+  // }, [user?.uid])
 
-    return () => clearInterval(interval)
-  }, [router, user?.uid])
-
-  if (!user || !userData) {
-    return <div>Loading...</div>
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    )
   }
 
-  // Use real user data from API
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-gray-600">Redirecting to login...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Use real user data from API or fallback to local data
   const dashboardData = {
-    currentIncome: userData.totalBalance ?? '0.00',
-    totalWithdraw: userData.totalWithdrawals ?? '0.00',
-    upliner: userData.inviteCode ?? '',
-    recentWithdrawal: `User ${userData.name} Withdraw $${userData.totalWithdrawals} USDT.`,
+    currentIncome: userData?.totalBalance ?? user?.totalBalance ?? '0.00',
+    totalWithdraw: userData?.totalWithdrawals ?? user?.totalWithdrawals ?? '0.00',
+    upliner: userData?.inviteCode ?? user?.inviteCode ?? '',
+    recentWithdrawal: `User ${userData?.name ?? user?.name ?? 'User'} Withdraw $${userData?.totalWithdrawals ?? user?.totalWithdrawals ?? '0'} USDT.`,
   }
 
   const mainActions = [
@@ -73,6 +111,13 @@ const DashboardClient = () => {
 
   return (
     <div className="space-y-8">
+      {/* Error message */}
+      {error && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg">
+          <p className="text-sm">{error}</p>
+        </div>
+      )}
+
       {/* Top income/withdrawals section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-6 rounded-xl shadow-lg">
         <div className="flex flex-col items-center p-4">

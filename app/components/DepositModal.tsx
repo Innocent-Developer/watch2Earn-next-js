@@ -23,7 +23,7 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
 
   const accountDetails = {
     accountNumber: '03254472055',
-    accountName: 'UK ADS Business', 
+    accountName: 'primeWatcher Business', 
     bankName: 'EasyPaisa / JazzCash',
     accountType: 'Mobile Account'
   }

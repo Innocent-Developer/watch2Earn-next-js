@@ -74,7 +74,7 @@ const LoginPage = () => {
             Welcome Back
           </h2>
           <p className="text-gray-600">
-            Sign in to your UK ADS account
+            Sign in to your primeWatcher account
           </p>
           <p className="text-sm text-gray-500 mt-2">
             (Test Mode: Enter any email and password)
