@@ -12,7 +12,7 @@ const LayoutWrapper = ({ children }: LayoutWrapperProps) => {
   const pathname = usePathname()
   
   // Pages where we don't want to show header and footer
-  const authPages = ['/login', '/register', '/forgot-password']
+  const authPages = ['/login', '/signup', 'signup/*', '/forgot-password']
   const isAuthPage = authPages.includes(pathname)
 
   return (

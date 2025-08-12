@@ -7,8 +7,8 @@ import LayoutWrapper from './components/LayoutWrapper'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'UK ADS',
-  description: 'Watch & Earn',
+  title: 'PrimeWatcher',
+  description: 'PrimeWatcher - Watch & Earn',
 }
 
 interface RootLayoutProps {
