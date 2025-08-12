@@ -161,7 +161,7 @@ const SignupPageContent = () => {
         <div className="text-center">
           <div className="mx-auto h-20 w-20 mb-6 relative">
             <Image 
-              src="/favicon.ico" 
+              src="/logo.png" 
               alt="UK ADS Logo" 
               width={80} 
               height={80} 

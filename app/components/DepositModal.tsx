@@ -1,12 +1,24 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { X, Copy, CreditCard, DollarSign } from 'lucide-react'
 import { getUserData } from '../utils/userStorage'
 
 interface DepositModalProps {
   isOpen: boolean
   onClose: () => void
+}
+
+interface AccountInfo {
+  _id: string
+  accountNumber: string
+  accountHolderName: string
+  bankName: string
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+  __v: number
+  id: string
 }
 
 const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
@@ -20,12 +32,42 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState('')
+  const [accountInfo, setAccountInfo] = useState<AccountInfo[]>([])
+  const [isLoadingAccounts, setIsLoadingAccounts] = useState(false)
+  const [selectedAccount, setSelectedAccount] = useState<AccountInfo | null>(null)
 
-  const accountDetails = {
-    accountNumber: '03254472055',
-    accountName: 'primeWatcher Business', 
-    bankName: 'EasyPaisa / JazzCash',
-    accountType: 'Mobile Account'
+  useEffect(() => {
+    if (isOpen) {
+      fetchAccountInfo()
+    }
+  }, [isOpen])
+
+  const fetchAccountInfo = async () => {
+    try {
+      setIsLoadingAccounts(true)
+      const response = await fetch('https://watch2earn-vie97.ondigitalocean.app/api/admin/account')
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      setAccountInfo(data)
+      
+      // Set the first active account as default selected account
+      const activeAccount = data.find((account: AccountInfo) => account.isActive)
+      if (activeAccount) {
+        setSelectedAccount(activeAccount)
+      } else if (data.length > 0) {
+        setSelectedAccount(data[0])
+      }
+      
+    } catch (error) {
+      console.error('Error fetching account info:', error)
+      setError('Failed to load account information. Please try again later.')
+    } finally {
+      setIsLoadingAccounts(false)
+    }
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -44,6 +86,10 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
     } catch (err) {
       console.error('Failed to copy: ', err)
     }
+  }
+
+  const handleAccountSelect = (account: AccountInfo) => {
+    setSelectedAccount(account)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -113,32 +159,77 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
         {/* Account Details Section */}
         <div className="p-6 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Our Account Details</h3>
-          <div className="space-y-3">
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-600">Account Number</span>
-                <button
-                  onClick={() => copyToClipboard(accountDetails.accountNumber)}
-                  className="text-primary hover:text-dark-purple transition-colors"
-                >
-                  <Copy className="h-4 w-4" />
-                </button>
-              </div>
-              <p className="text-lg font-bold text-gray-800">{accountDetails.accountNumber}</p>
-              {copied && <p className="text-xs text-green-600 mt-1">Copied to clipboard!</p>}
+          
+          {isLoadingAccounts ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              <span className="ml-3 text-gray-600">Loading account information...</span>
             </div>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Account Name</p>
-                <p className="font-semibold text-gray-800">{accountDetails.accountName}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Bank</p>
-                <p className="font-semibold text-gray-800">{accountDetails.bankName}</p>
-              </div>
+          ) : accountInfo.length > 0 ? (
+            <div className="space-y-4">
+              {/* Account Selection */}
+              {accountInfo.length > 1 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Account
+                  </label>
+                  <select
+                    value={selectedAccount?.id || ''}
+                    onChange={(e) => {
+                      const account = accountInfo.find(acc => acc.id === e.target.value)
+                      if (account) setSelectedAccount(account)
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                  >
+                    {accountInfo.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.bankName} - {account.accountHolderName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Selected Account Details */}
+              {selectedAccount && (
+                <div className="space-y-3">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-600">Account Number</span>
+                      <button
+                        onClick={() => copyToClipboard(selectedAccount.accountNumber)}
+                        className="text-primary hover:text-dark-purple transition-colors"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <p className="text-lg font-bold text-gray-800">{selectedAccount.accountNumber}</p>
+                    {copied && <p className="text-xs text-green-600 mt-1">Copied to clipboard!</p>}
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Account Holder Name</p>
+                      <p className="font-semibold text-gray-800">{selectedAccount.accountHolderName}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Bank Name</p>
+                      <p className="font-semibold text-gray-800">{selectedAccount.bankName}</p>
+                    </div>
+                    {selectedAccount.isActive && (
+                      <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 w-fit">
+                        Active Account
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
+          ) : (
+            <div className="text-center py-4 text-gray-500">
+              <p>No account information available</p>
+            </div>
+          )}
         </div>
 
         {/* Form */}
@@ -250,7 +341,7 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
           <div className="pt-4">
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !selectedAccount}
               className="w-full bg-primary text-white py-3 px-4 rounded-lg font-medium hover:bg-dark-purple focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
               {isSubmitting ? (

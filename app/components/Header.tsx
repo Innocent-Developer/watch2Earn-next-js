@@ -27,9 +27,13 @@ const Header = () => {
         {/* Center with logo */}
         <Link href="/" className="flex-shrink-0">
           <div className="flex items-center">
-            {/* Using an icon instead of external image for reliability */}
-            <div className="h-10 w-10 bg-white rounded-full flex items-center justify-center">
-              <DollarSign className="h-6 w-6 text-primary" />
+            {/* Logo image */}
+            <div className="h-10 w-10 rounded-full flex items-center justify-center overflow-hidden">
+                          <img 
+              src="/logo.png" 
+              alt="UK ADS Logo" 
+              className="h-full w-full object-cover"
+            />
             </div>
             <h1 className="ml-2 text-xl font-bold tracking-wider hidden sm:block">primeWatcher</h1>
           </div>
