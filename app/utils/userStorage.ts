@@ -9,6 +9,7 @@ export interface UserData {
   totalBalance?: string
   totalWithdrawals?: string
   inviteCode?: string
+  referralCode?:string
   level?: string
   plan?: string
   avatar?: string

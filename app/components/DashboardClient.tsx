@@ -90,7 +90,7 @@ const DashboardClient = () => {
   const dashboardData = {
     currentIncome: userData?.totalBalance ?? user?.totalBalance ?? '0.00',
     totalWithdraw: userData?.totalWithdrawals ?? user?.totalWithdrawals ?? '0.00',
-    upliner: userData?.inviteCode ?? user?.inviteCode ?? '',
+            upliner: userData?.referralCode ?? user?.referralCode ?? userData?.inviteCode ?? user?.inviteCode ?? '',
     recentWithdrawal: `User ${userData?.name ?? user?.name ?? 'User'} Withdraw $${userData?.totalWithdrawals ?? user?.totalWithdrawals ?? '0'} USDT.`,
   }
 
