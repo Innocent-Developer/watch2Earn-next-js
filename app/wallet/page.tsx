@@ -37,17 +37,17 @@ const WalletPageContent = () => {
         <div className="bg-primary text-white p-6 rounded-xl shadow-lg flex flex-col items-start transition-transform transform hover:scale-105">
           <CreditCard className="h-10 w-10 mb-2 opacity-75" />
           <p className="text-sm font-light">Current Balance</p>
-          <h3 className="text-2xl font-bold">${balanceData.currentBalance}</h3>
+          <h3 className="text-2xl font-bold">PKR {balanceData.currentBalance}</h3>
         </div>
         <div className="bg-purple-500 text-white p-6 rounded-xl shadow-lg flex flex-col items-start transition-transform transform hover:scale-105">
           <TrendingUp className="h-10 w-10 mb-2 opacity-75" />
           <p className="text-sm font-light">Total Balance</p>
-          <h3 className="text-2xl font-bold">${balanceData.totalBalance}</h3>
+          <h3 className="text-2xl font-bold">PKR {balanceData.totalBalance}</h3>
         </div>
         <div className="bg-red-500 text-white p-6 rounded-xl shadow-lg flex flex-col items-start transition-transform transform hover:scale-105">
           <TrendingDown className="h-10 w-10 mb-2 opacity-75" />
           <p className="text-sm font-light">Total Withdraw</p>
-          <h3 className="text-2xl font-bold">${balanceData.totalWithdraw}</h3>
+          <h3 className="text-2xl font-bold">PKR {balanceData.totalWithdraw}</h3>
         </div>
       </div>
 

@@ -91,7 +91,7 @@ const DashboardClient = () => {
     currentIncome: userData?.totalBalance ?? user?.totalBalance ?? '0.00',
     totalWithdraw: userData?.totalWithdrawals ?? user?.totalWithdrawals ?? '0.00',
             upliner: userData?.referralCode ?? user?.referralCode ?? userData?.inviteCode ?? user?.inviteCode ?? '',
-    recentWithdrawal: `User ${userData?.name ?? user?.name ?? 'User'} Withdraw $${userData?.totalWithdrawals ?? user?.totalWithdrawals ?? '0'} USDT.`,
+            recentWithdrawal: `User ${userData?.name ?? user?.name ?? 'User'} Withdraw PKR ${userData?.totalWithdrawals ?? user?.totalWithdrawals ?? '0'} USDT.`,
   }
 
   const mainActions = [
@@ -122,11 +122,11 @@ const DashboardClient = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-6 rounded-xl shadow-lg">
         <div className="flex flex-col items-center p-4">
           <h3 className="text-lg font-medium text-gray-500">Current Income</h3>
-          <p className="text-3xl font-bold text-gray-900">${dashboardData.currentIncome}</p>
+          <p className="text-3xl font-bold text-gray-900">PKR {dashboardData.currentIncome}</p>
         </div>
         <div className="flex flex-col items-center p-4">
           <h3 className="text-lg font-medium text-gray-500">Total Withdraw</h3>
-          <p className="text-3xl font-bold text-gray-900">${dashboardData.totalWithdraw}</p>
+          <p className="text-3xl font-bold text-gray-900">PKR {dashboardData.totalWithdraw}</p>
         </div>
         <div className="md:col-span-2 text-center text-sm text-gray-600 border-t pt-4 mt-4">
           Upliner: <span className="font-semibold text-primary">{dashboardData.upliner}</span>

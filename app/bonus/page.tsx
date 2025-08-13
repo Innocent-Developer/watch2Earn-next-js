@@ -9,15 +9,15 @@ export const metadata: Metadata = {
 const BonusPage = () => {
   const bonusTasks = [
     {
-      description: 'Add 2 Users and Get $1',
+      description: 'Add 2 Users and Get PKR 1',
       inputs: [1, 2],
     },
     {
-      description: 'Add 2 Users and Get $1',
+      description: 'Add 2 Users and Get PKR 1',
       inputs: [3, 4],
     },
     {
-      description: 'Add 1 Users and Get $1',
+      description: 'Add 1 Users and Get PKR 1',
       inputs: [5],
     },
   ]

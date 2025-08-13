@@ -39,7 +39,7 @@ const LevelPage = () => {
               <tr key={row.level} className={`border-b ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
                 <td className="px-4 py-3 font-medium text-gray-800">{row.level}</td>
                 <td className="px-4 py-3 text-right text-gray-600">{row.pkr}</td>
-                <td className="px-4 py-3 text-right text-gray-600">${row.usd.toFixed(2)}</td>
+                <td className="px-4 py-3 text-right text-gray-600">PKR {row.usd.toFixed(2)}</td>
               </tr>
             ))}
           </tbody>

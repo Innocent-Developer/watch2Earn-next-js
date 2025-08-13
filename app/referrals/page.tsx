@@ -197,7 +197,7 @@ const ReferralsPage = () => {
                   </div>
                   <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3">
                     <p className="text-xs opacity-75 mb-1">Total Earnings</p>
-                    <p className="text-xl font-bold">${referralStats.totalEarnings}</p>
+                    <p className="text-xl font-bold">PKR {referralStats.totalEarnings}</p>
                   </div>
                 </div>
               </div>
@@ -338,7 +338,7 @@ const ReferralsPage = () => {
             <Gift className="h-8 w-8 text-yellow-500 mr-3" />
             <div>
               <p className="text-sm text-gray-600">Total Earnings</p>
-              <p className="text-2xl font-bold text-gray-800">${referralStats.totalEarnings}</p>
+              <p className="text-2xl font-bold text-gray-800">PKR {referralStats.totalEarnings}</p>
             </div>
           </div>
         </div>
@@ -381,7 +381,7 @@ const ReferralsPage = () => {
           <div>
             <h3 className="font-semibold mb-2">For You</h3>
             <ul className="text-sm space-y-1 opacity-90">
-              <li>• $5 bonus when referral signs up</li>
+              <li>• PKR 5 bonus when referral signs up</li>
               <li>• 10% commission on their earnings</li>
               <li>• Level bonuses for active referrals</li>
             </ul>
@@ -389,7 +389,7 @@ const ReferralsPage = () => {
           <div>
             <h3 className="font-semibold mb-2">For Your Referral</h3>
             <ul className="text-sm space-y-1 opacity-90">
-              <li>• $3 welcome bonus</li>
+              <li>• PKR 3 welcome bonus</li>
               <li>• 5% extra earnings</li>
               <li>• Priority support access</li>
             </ul>

@@ -1,8 +1,8 @@
 "use client"
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Video, Play, Clock, DollarSign, AlertTriangle, CheckCircle, X } from 'lucide-react'
+import { Video, Play, Clock, DollarSign, AlertTriangle, CheckCircle, X, Pause } from 'lucide-react'
 import { getUserData, UserData } from '../utils/userStorage'
 
 interface Ad {
@@ -38,6 +38,7 @@ interface WatchHistory {
 
 const WatchAdsPage = () => {
   const router = useRouter()
+  const videoRef = useRef<HTMLVideoElement>(null)
   const [user, setUser] = useState<UserData | null>(null)
   const [userData, setUserData] = useState<any>(null)
   const [ads, setAds] = useState<Ad[]>([])
@@ -49,6 +50,17 @@ const WatchAdsPage = () => {
   const [selectedAd, setSelectedAd] = useState<Ad | null>(null)
   const [showVideoModal, setShowVideoModal] = useState(false)
   const [balanceUpdateStatus, setBalanceUpdateStatus] = useState<'idle' | 'updating' | 'success' | 'failed'>('idle')
+  
+  // Video states
+  const [videoProgress, setVideoProgress] = useState(0)
+  const [videoDuration, setVideoDuration] = useState(0)
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false)
+  const [videoCompleted, setVideoCompleted] = useState(false)
+  const [canClaimReward, setCanClaimReward] = useState(false)
+  const [rewardClaimed, setRewardClaimed] = useState(false)
+  const [videoError, setVideoError] = useState<string | null>(null)
+  const [isVideoLoading, setIsVideoLoading] = useState(true)
+  const [videoCanPlay, setVideoCanPlay] = useState(false)
 
   const fetchUserData = async (uid: number) => {
     try {
@@ -147,7 +159,7 @@ const WatchAdsPage = () => {
           ...prev,
           totalBalance: newBalance
         }))
-        console.log(`Balance updated locally: +$${amount}, New balance: $${newBalance}`)
+        console.log(`Balance updated locally: +PKR ${amount}, New balance: PKR ${newBalance}`)
         return true
       }
       return false
@@ -190,7 +202,7 @@ const WatchAdsPage = () => {
             totalBalance: data.newBalance
           }))
         }
-        console.log(`Balance updated successfully via API: +$${amount}, New balance: $${data.newBalance}`)
+        console.log(`Balance updated successfully via API: +PKR ${amount}, New balance: PKR ${data.newBalance}`)
         return true
       } else {
         throw new Error(data.message || 'Failed to update balance')
@@ -224,6 +236,135 @@ const WatchAdsPage = () => {
     return 'direct'
   }
 
+  // Video event handlers
+  const handleVideoLoadStart = () => {
+    setIsVideoLoading(true)
+    setVideoCanPlay(false)
+    setVideoError(null)
+    console.log('Video loading started')
+  }
+
+  const handleVideoLoadedMetadata = () => {
+    try {
+      if (videoRef.current && videoRef.current.duration) {
+        setVideoDuration(videoRef.current.duration)
+        setVideoError(null)
+        console.log('Video metadata loaded successfully, duration:', videoRef.current.duration)
+      }
+    } catch (error) {
+      console.error('Error handling video metadata:', error)
+    }
+  }
+
+  const handleVideoCanPlay = () => {
+    setIsVideoLoading(false)
+    setVideoCanPlay(true)
+    console.log('Video can play')
+  }
+
+  const handleVideoTimeUpdate = () => {
+    try {
+      if (videoRef.current && videoRef.current.duration > 0) {
+        const progress = (videoRef.current.currentTime / videoRef.current.duration) * 100
+        setVideoProgress(progress)
+        
+        // Check if video is almost complete (95% watched)
+        if (progress >= 95 && !videoCompleted) {
+          setVideoCompleted(true)
+          setCanClaimReward(true)
+          console.log('Video completed - reward can be claimed')
+        }
+      }
+    } catch (error) {
+      console.error('Error handling video time update:', error)
+    }
+  }
+
+  const handleVideoPlay = () => {
+    setIsVideoPlaying(true)
+  }
+
+  const handleVideoPause = () => {
+    setIsVideoPlaying(false)
+  }
+
+  const handleVideoEnded = () => {
+    setIsVideoPlaying(false)
+    setVideoCompleted(true)
+    setCanClaimReward(true)
+    setVideoProgress(100)
+  }
+
+  const handleVideoError = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
+    const videoElement = e.currentTarget as HTMLVideoElement
+    
+    // Safely extract error information
+    const errorDetails = {
+      errorCode: videoElement.error?.code || 'Unknown',
+      errorMessage: videoElement.error?.message || 'Unknown error',
+      networkState: videoElement.networkState || 'Unknown',
+      readyState: videoElement.readyState || 'Unknown',
+      src: videoElement.src || 'No source',
+      currentSrc: videoElement.currentSrc || 'No current source',
+      videoWidth: videoElement.videoWidth || 0,
+      videoHeight: videoElement.videoHeight || 0
+    }
+    
+    console.error('Video error details:', errorDetails)
+    
+    // Set user-friendly error message based on error code
+    let errorMessage = 'Failed to load video. '
+    if (videoElement.error) {
+      switch (videoElement.error.code) {
+        case 1: // MEDIA_ERR_ABORTED
+          errorMessage += 'Video loading was aborted.'
+          break
+        case 2: // MEDIA_ERR_NETWORK
+          errorMessage += 'Network error occurred while loading video.'
+          break
+        case 3: // MEDIA_ERR_DECODE
+          errorMessage += 'Video format is not supported or corrupted.'
+          break
+        case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
+          errorMessage += 'Video format or source is not supported.'
+          break
+        default:
+          errorMessage += 'Unknown error occurred.'
+      }
+    } else {
+      errorMessage += 'This might be due to network issues or unsupported video format.'
+    }
+    
+    setVideoError(errorMessage)
+    setIsVideoPlaying(false)
+  }
+
+  const claimReward = async () => {
+    if (!canClaimReward || rewardClaimed || !selectedAd || !user?.uid) return
+
+    setRewardClaimed(true)
+    setBalanceUpdateStatus('updating')
+
+    try {
+      const balanceUpdated = await updateUserBalance(user.uid, 1)
+      if (balanceUpdated) {
+        setBalanceUpdateStatus('success')
+        
+        // Save watch history
+        saveWatchHistory(selectedAd._id)
+        setWatchCount(prev => prev + 1)
+        
+        console.log('Reward claimed successfully')
+      } else {
+        setBalanceUpdateStatus('failed')
+        console.error('Failed to claim reward')
+      }
+    } catch (error) {
+      setBalanceUpdateStatus('failed')
+      console.error('Reward claim failed:', error)
+    }
+  }
+
   // Function to render video content based on type
   const renderVideoContent = (ad: Ad) => {
     const displayType = getVideoDisplayType(ad.videoUrl)
@@ -231,57 +372,110 @@ const WatchAdsPage = () => {
     switch (displayType) {
       case 'direct':
         return (
-          <video
-            key={ad._id}
-            controls
-            className="w-full h-full object-cover"
-            autoPlay
-            muted
-            playsInline
-            preload="metadata"
-            onLoadStart={() => console.log('Video loading started')}
-            onLoadedMetadata={() => console.log('Video metadata loaded')}
-            onLoadedData={() => console.log('Video data loaded successfully')}
-            onCanPlay={() => console.log('Video can start playing')}
-            onError={(e) => {
-              const videoElement = e.currentTarget as HTMLVideoElement
-              console.error('Video error details:', {
-                error: videoElement.error,
-                networkState: videoElement.networkState,
-                readyState: videoElement.readyState,
-                src: videoElement.src,
-                currentSrc: videoElement.currentSrc
-              })
-              
-              if (videoElement.parentElement) {
-                videoElement.parentElement.innerHTML = `
-                  <div class="flex items-center justify-center h-full bg-gray-100 rounded-lg">
-                    <div class="text-center text-gray-500 p-8">
-                      <svg class="h-16 w-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-                      </svg>
-                      <p class="text-lg font-medium mb-2">Video Unavailable</p>
-                      <p class="text-sm mb-4">The video could not be loaded</p>
-                      <div class="bg-white p-4 rounded-lg border max-w-md mx-auto">
-                        <p class="text-xs text-gray-600 mb-2">Video URL:</p>
-                        <p class="text-xs text-gray-800 break-all">${ad.videoUrl}</p>
-                      </div>
+          <div className="relative">
+            {videoError ? (
+              <div className="flex items-center justify-center h-full bg-gray-100 rounded-lg min-h-[300px]">
+                <div className="text-center text-gray-500 p-8">
+                  <AlertTriangle className="h-16 w-16 mx-auto mb-4 text-red-400" />
+                  <p className="text-lg font-medium mb-2">Video Error</p>
+                  <p className="text-sm mb-4">{videoError}</p>
+                  <div className="bg-white p-4 rounded-lg border max-w-md mx-auto">
+                    <p className="text-xs text-gray-600 mb-2">Video URL:</p>
+                    <p className="text-xs text-gray-800 break-all">{ad.videoUrl}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setVideoError(null)
+                      if (videoRef.current) {
+                        videoRef.current.load()
+                      }
+                    }}
+                    className="mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-opacity-80"
+                  >
+                    Retry
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <video
+                  ref={videoRef}
+                  key={`video-${ad._id}-${Date.now()}`}
+                  controls
+                  className="w-full h-full object-cover min-h-[300px]"
+                  autoPlay
+                  muted
+                  playsInline
+                  preload="metadata"
+                  crossOrigin="anonymous"
+                  onLoadStart={handleVideoLoadStart}
+                  onLoadedMetadata={handleVideoLoadedMetadata}
+                  onLoadedData={() => console.log('Video data loaded successfully')}
+                  onCanPlay={handleVideoCanPlay}
+                  onTimeUpdate={handleVideoTimeUpdate}
+                  onPlay={handleVideoPlay}
+                  onPause={handleVideoPause}
+                  onEnded={handleVideoEnded}
+                  onError={handleVideoError}
+                  onAbort={() => console.log('Video loading aborted')}
+                  onEmptied={() => console.log('Video emptied')}
+                  onStalled={() => console.log('Video stalled')}
+                  onSuspend={() => console.log('Video suspended')}
+                  onWaiting={() => console.log('Video waiting')}
+                >
+                  <source src={ad.videoUrl} type="video/mp4" />
+                  <source src={ad.videoUrl} type="video/webm" />
+                  <source src={ad.videoUrl} type="video/ogg" />
+                  <p>Your browser does not support the video tag.</p>
+                </video>
+                
+                {/* Video Loading Overlay */}
+                {isVideoLoading && !videoError && (
+                  <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                    <div className="text-white text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+                      <p className="text-sm">Loading video...</p>
                     </div>
                   </div>
-                `
-              }
-            }}
-          >
-            <source src={ad.videoUrl} type="video/mp4" />
-            <source src={ad.videoUrl} type="video/webm" />
-            <source src={ad.videoUrl} type="video/ogg" />
-            <p>Your browser does not support the video tag.</p>
-          </video>
+                )}
+
+                {/* Video Progress Overlay */}
+                {!isVideoLoading && videoCanPlay && !videoError && (
+                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm">
+                        {isVideoPlaying ? (
+                          <><Pause className="inline h-3 w-3 mr-1" />Playing</>
+                        ) : (
+                          <><Play className="inline h-3 w-3 mr-1" />Paused</>
+                        )}
+                      </span>
+                      <span className="text-sm">
+                        {Math.round(videoProgress)}% watched
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-600 rounded-full h-1">
+                      <div 
+                        className="bg-primary h-1 rounded-full transition-all duration-300"
+                        style={{ width: `${videoProgress}%` }}
+                      ></div>
+                    </div>
+                    {videoCompleted && (
+                      <div className="text-center mt-2">
+                        <CheckCircle className="inline h-4 w-4 mr-1 text-green-400" />
+                        <span className="text-sm text-green-400">Video completed!</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         )
       
       case 'social':
         return (
-          <div className="flex items-center justify-center h-full bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg">
+          <div className="flex items-center justify-center h-full bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg min-h-[300px]">
             <div className="text-center p-8 max-w-md">
               <div className="mb-6">
                 {ad.videoUrl.includes('instagram.com') && (
@@ -305,7 +499,7 @@ const WatchAdsPage = () => {
               </h3>
               
               <p className="text-gray-600 mb-6">
-                This is a social media video that cannot be played directly in the app.
+                Please watch the video in the external link to claim your reward.
               </p>
               
               <div className="bg-white p-4 rounded-lg border mb-6">
@@ -315,10 +509,17 @@ const WatchAdsPage = () => {
               
               <div className="space-y-3">
                 <button
-                  onClick={() => window.open(ad.videoUrl, '_blank', 'noopener,noreferrer')}
+                  onClick={() => {
+                    window.open(ad.videoUrl, '_blank', 'noopener,noreferrer')
+                    // For social media videos, allow immediate reward claim
+                    setTimeout(() => {
+                      setCanClaimReward(true)
+                      setVideoCompleted(true)
+                    }, 2000)
+                  }}
                   className="w-full bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors font-medium"
                 >
-                  Open in New Tab
+                  Open Video & Watch
                 </button>
                 
                 <button
@@ -339,12 +540,11 @@ const WatchAdsPage = () => {
       
       default:
         return (
-          <div className="flex items-center justify-center h-full bg-gray-100 rounded-lg">
+          <div className="flex items-center justify-center h-full bg-gray-100 rounded-lg min-h-[300px]">
             <div className="text-center text-gray-500">
-              <svg className="h-16 w-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-              </svg>
-              <p>No video URL provided</p>
+              <AlertTriangle className="h-16 w-16 mx-auto mb-4 text-gray-400" />
+              <p className="text-lg font-medium mb-2">No Video Available</p>
+              <p className="text-sm">No video URL provided for this ad</p>
             </div>
           </div>
         )
@@ -393,39 +593,41 @@ const WatchAdsPage = () => {
       return
     }
 
-    // Save watch history first
-    saveWatchHistory(ad._id)
-    setWatchCount(prev => prev + 1)
+    // Reset video states
+    setVideoProgress(0)
+    setVideoDuration(0)
+    setIsVideoPlaying(false)
+    setVideoCompleted(false)
+    setCanClaimReward(false)
+    setRewardClaimed(false)
+    setVideoError(null)
+    setIsVideoLoading(true)
+    setVideoCanPlay(false)
+    setBalanceUpdateStatus('idle')
 
-    // Show video modal immediately
+    // Show video modal
     setSelectedAd(ad)
     setShowVideoModal(true)
-
-    // Try to update user balance in the background
-    if (user?.uid) {
-      setBalanceUpdateStatus('updating')
-      
-      setTimeout(async () => {
-        try {
-          const balanceUpdated = await updateUserBalance(user.uid, 1)
-          if (balanceUpdated) {
-            setBalanceUpdateStatus('success')
-            console.log('Balance updated successfully')
-          } else {
-            setBalanceUpdateStatus('failed')
-            console.error('Failed to update balance')
-          }
-        } catch (error) {
-          setBalanceUpdateStatus('failed')
-          console.error('Background balance update failed:', error)
-        }
-      }, 100)
-    }
   }
 
   const closeVideoModal = () => {
+    // Pause video if playing
+    if (videoRef.current) {
+      videoRef.current.pause()
+      videoRef.current.currentTime = 0
+    }
+    
     setShowVideoModal(false)
     setSelectedAd(null)
+    setVideoProgress(0)
+    setVideoDuration(0)
+    setIsVideoPlaying(false)
+    setVideoCompleted(false)
+    setCanClaimReward(false)
+    setRewardClaimed(false)
+    setVideoError(null)
+    setIsVideoLoading(true)
+    setVideoCanPlay(false)
     setBalanceUpdateStatus('idle')
   }
 
@@ -473,7 +675,7 @@ const WatchAdsPage = () => {
               </div>
               <div className="flex items-center justify-center space-x-2">
                 <CheckCircle className="h-4 w-4" />
-                <span>Have a balance greater than $1</span>
+                <span>Have a balance greater than PKR 1</span>
               </div>
             </div>
             <div className="mt-6 p-4 bg-white rounded-lg">
@@ -481,7 +683,7 @@ const WatchAdsPage = () => {
                 Current Plan: <span className="font-semibold">{userData?.plan || user?.plan || 'basic'}</span>
               </p>
               <p className="text-sm text-gray-600">
-                Current Balance: <span className="font-semibold">${userData?.totalBalance || user?.totalBalance || '0.00'}</span>
+                Current Balance: <span className="font-semibold">PKR {userData?.totalBalance || user?.totalBalance || '0.00'}</span>
               </p>
             </div>
           </div>
@@ -613,20 +815,51 @@ const WatchAdsPage = () => {
               </div>
               
               <div className="mt-4 text-center">
+                {/* Reward Status */}
                 <div className="mb-4">
-                  <p className="text-sm text-gray-600 mb-2">
-                    You earned $1.00 for watching this ad!
-                  </p>
-                  {balanceUpdateStatus === 'updating' && (
-                    <p className="text-sm text-blue-600">Updating balance...</p>
+                  {!videoCompleted && (
+                    <p className="text-sm text-gray-600 mb-2">
+                      Watch the video to completion to earn PKR 1.00!
+                    </p>
                   )}
-                  {balanceUpdateStatus === 'success' && (
-                    <p className="text-sm text-green-600">✓ Balance updated successfully!</p>
+                  
+                  {videoCompleted && !rewardClaimed && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
+                      <CheckCircle className="inline h-4 w-4 mr-1 text-green-500" />
+                      <p className="text-sm text-green-700">
+                        Video completed! You can now claim your reward.
+                      </p>
+                    </div>
                   )}
-                  {balanceUpdateStatus === 'failed' && (
-                    <p className="text-sm text-orange-600">⚠ Balance update failed, but you still earned the reward!</p>
+                  
+                  {rewardClaimed && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                      <p className="text-sm text-blue-700 mb-2">
+                        You earned PKR 1.00 for watching this ad!
+                      </p>
+                      {balanceUpdateStatus === 'updating' && (
+                        <p className="text-sm text-blue-600">Updating balance...</p>
+                      )}
+                      {balanceUpdateStatus === 'success' && (
+                        <p className="text-sm text-green-600">✓ Balance updated successfully!</p>
+                      )}
+                      {balanceUpdateStatus === 'failed' && (
+                        <p className="text-sm text-orange-600">⚠ Balance update failed, but you still earned the reward!</p>
+                      )}
+                    </div>
                   )}
                 </div>
+
+                {/* Claim Reward Button */}
+                {canClaimReward && !rewardClaimed && (
+                  <button
+                    onClick={claimReward}
+                    className="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors font-medium mb-4 flex items-center justify-center mx-auto"
+                  >
+                    <DollarSign className="h-4 w-4 mr-2" />
+                    Claim PKR 1.00 Reward
+                  </button>
+                )}
                 
                 {/* Debug info for development */}
                 {process.env.NODE_ENV === 'development' && (
@@ -634,6 +867,10 @@ const WatchAdsPage = () => {
                     <p className="text-xs text-gray-600 mb-2">Debug Info:</p>
                     <p className="text-xs text-gray-800">Video URL: {selectedAd.videoUrl || 'None'}</p>
                     <p className="text-xs text-gray-800">Display Type: {getVideoDisplayType(selectedAd.videoUrl)}</p>
+                    <p className="text-xs text-gray-800">Video Progress: {Math.round(videoProgress)}%</p>
+                    <p className="text-xs text-gray-800">Video Completed: {videoCompleted ? 'Yes' : 'No'}</p>
+                    <p className="text-xs text-gray-800">Can Claim Reward: {canClaimReward ? 'Yes' : 'No'}</p>
+                    <p className="text-xs text-gray-800">Reward Claimed: {rewardClaimed ? 'Yes' : 'No'}</p>
                     <p className="text-xs text-gray-800">Ad ID: {selectedAd._id}</p>
                     <p className="text-xs text-gray-800">Ad Name: {selectedAd.name}</p>
                     <p className="text-xs text-gray-800">Video Duration: {selectedAd.duration}s</p>
@@ -642,7 +879,7 @@ const WatchAdsPage = () => {
                 
                 <button
                   onClick={closeVideoModal}
-                  className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-dark-purple transition-colors"
+                  className="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition-colors"
                 >
                   Close
                 </button>

@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from 'react'
-import { X, Copy, CreditCard, DollarSign } from 'lucide-react'
+import { X, Copy, CreditCard, DollarSign, Upload } from 'lucide-react'
 import { getUserData } from '../utils/userStorage'
 
 interface DepositModalProps {
@@ -27,7 +27,7 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
     bankName: '',
     transactionId: '',
     senderName: '',
-    senderPhone: ''
+    pic: ''
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -35,6 +35,8 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
   const [accountInfo, setAccountInfo] = useState<AccountInfo[]>([])
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false)
   const [selectedAccount, setSelectedAccount] = useState<AccountInfo | null>(null)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
   useEffect(() => {
     if (isOpen) {
@@ -78,6 +80,62 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
     }))
   }
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a valid image file')
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image size should be less than 5MB')
+      return
+    }
+
+    setSelectedFile(file)
+    await uploadImageToR2(file)
+  }
+
+  const uploadImageToR2 = async (file: File) => {
+    try {
+      setIsUploadingImage(true)
+      setError('')
+
+      const formDataForUpload = new FormData()
+      formDataForUpload.append('image', file)
+
+      const response = await fetch('https://watch2earn-vie97.ondigitalocean.app/api/upload', {
+        method: 'POST',
+        body: formDataForUpload,
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to upload image')
+      }
+
+      const data = await response.json()
+      
+      if (data.url) {
+        setFormData(prev => ({
+          ...prev,
+          pic: data.url
+        }))
+      } else {
+        throw new Error('No URL returned from upload')
+      }
+
+    } catch (err: any) {
+      setError(err.message || 'Failed to upload image')
+      setSelectedFile(null)
+    } finally {
+      setIsUploadingImage(false)
+    }
+  }
+
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text)
@@ -101,6 +159,11 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
       const userData = getUserData()
       if (!userData?.uid) {
         setError('Please login to submit a deposit request')
+        return
+      }
+
+      if (!formData.pic) {
+        setError('Please upload a transaction screenshot')
         return
       }
 
@@ -128,8 +191,9 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
         bankName: '',
         transactionId: '',
         senderName: '',
-        senderPhone: ''
+        pic: ''
       })
+      setSelectedFile(null)
     } catch (err: any) {
       setError(err.message || 'Failed to submit deposit request')
     } finally {
@@ -311,19 +375,51 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
           </div>
 
           <div>
-            <label htmlFor="senderPhone" className="block text-sm font-medium text-gray-700 mb-2">
-              Sender Phone Number
+            <label htmlFor="pic" className="block text-sm font-medium text-gray-700 mb-2">
+              Transaction Screenshot *
             </label>
-            <input
-              type="tel"
-              id="senderPhone"
-              name="senderPhone"
-              value={formData.senderPhone}
-              onChange={handleInputChange}
-              required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-              placeholder="Enter sender's phone number"
-            />
+            <div className="space-y-3">
+              <div className="flex items-center justify-center w-full">
+                <label htmlFor="pic" className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <Upload className="w-8 h-8 mb-4 text-gray-500" />
+                    <p className="mb-2 text-sm text-gray-500">
+                      <span className="font-semibold">Click to upload</span> transaction screenshot
+                    </p>
+                    <p className="text-xs text-gray-500">PNG, JPG or JPEG (MAX. 5MB)</p>
+                  </div>
+                  <input
+                    id="pic"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    required
+                  />
+                </label>
+              </div>
+              
+              {isUploadingImage && (
+                <div className="flex items-center justify-center py-2">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary mr-2"></div>
+                  <span className="text-sm text-gray-600">Uploading image...</span>
+                </div>
+              )}
+              
+              {selectedFile && formData.pic && (
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                      <Upload className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-green-800">{selectedFile.name}</p>
+                      <p className="text-xs text-green-600">Upload successful</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Instructions */}
@@ -332,8 +428,9 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
             <ol className="text-sm text-blue-700 space-y-1">
               <li>1. Copy our account number above</li>
               <li>2. Send the amount to our account</li>
-              <li>3. Fill this form with transaction details</li>
-              <li>4. We will verify and credit within 24 hours</li>
+              <li>3. Take a screenshot of the transaction</li>
+              <li>4. Fill this form with transaction details and upload screenshot</li>
+              <li>5. We will verify and credit within 24 hours</li>
             </ol>
           </div>
 
@@ -341,7 +438,7 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
           <div className="pt-4">
             <button
               type="submit"
-              disabled={isSubmitting || !selectedAccount}
+              disabled={isSubmitting || !selectedAccount || isUploadingImage || !formData.pic}
               className="w-full bg-primary text-white py-3 px-4 rounded-lg font-medium hover:bg-dark-purple focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
               {isSubmitting ? (

@@ -28,7 +28,7 @@ const RewardsPage = () => {
           <div key={reward.level} className="bg-white p-6 rounded-xl shadow-lg flex items-center justify-between transition-transform transform hover:scale-105 hover:shadow-2xl">
             <div className="flex-1">
               <h2 className="text-xl font-bold text-primary">{reward.level}</h2>
-              <p className="text-2xl font-bold text-gray-800">${reward.reward}</p>
+              <p className="text-2xl font-bold text-gray-800">PKR {reward.reward}</p>
             </div>
             <div className="text-right">
               <p className="text-sm text-gray-500">Need {reward.membersNeeded} members</p>
