@@ -439,26 +439,8 @@ const WatchAdsPage = () => {
     setIsVideoPlaying(false)
   }
 
-  const claimReward = async () => {
-    if (!canClaimReward || rewardClaimed || !selectedAd || !user?.uid) return
-
-    setRewardClaimed(true)
-
-    try {
-      const balanceUpdated = await handleBalanceUpdate(user.uid, 10, selectedAd._id)
-      if (balanceUpdated) {
-        // Save watch history
-        saveWatchHistory(selectedAd._id)
-        setWatchCount(prev => prev + 1)
-        
-        console.log('Reward claimed successfully')
-      } else {
-        console.error('Failed to claim reward')
-      }
-    } catch (error) {
-      console.error('Reward claim failed:', error)
-    }
-  }
+  // Reward is now given immediately when user clicks "Watch Now"
+  // No need for separate claim function
 
   // Function to render video content based on type
   const renderVideoContent = (ad: Ad) => {
@@ -693,6 +675,12 @@ const WatchAdsPage = () => {
       return
     }
 
+    // Check if user is valid
+    if (!user?.uid) {
+      alert('User not found. Please login again.')
+      return
+    }
+
     // Reset video states
     setVideoProgress(0)
     setVideoDuration(0)
@@ -703,7 +691,34 @@ const WatchAdsPage = () => {
     setVideoError(null)
     setIsVideoLoading(true)
     setVideoCanPlay(false)
-    setBalanceUpdateStatus('idle')
+    setBalanceUpdateStatus('updating')
+
+    // Immediately update balance when user clicks "Watch Now"
+    try {
+      console.log('Updating balance immediately for watching ad:', ad.name)
+      const balanceUpdated = await handleBalanceUpdate(user.uid, 10, ad._id)
+      
+      if (balanceUpdated) {
+        // Save watch history
+        saveWatchHistory(ad._id)
+        setWatchCount(prev => prev + 1)
+        setBalanceUpdateStatus('success')
+        setRewardClaimed(true)
+        setCanClaimReward(true)
+        setVideoCompleted(true)
+        
+        console.log('Balance updated successfully: +PKR 10')
+        alert('Congratulations! You earned PKR 10.00 for watching this ad!')
+      } else {
+        setBalanceUpdateStatus('failed')
+        console.error('Failed to update balance')
+        alert('Failed to update balance, but you can still watch the ad.')
+      }
+    } catch (error) {
+      console.error('Balance update failed:', error)
+      setBalanceUpdateStatus('failed')
+      alert('Balance update failed, but you can still watch the ad.')
+    }
 
     // Show video modal
     setSelectedAd(ad)
@@ -960,17 +975,10 @@ const WatchAdsPage = () => {
               <div className="mt-4 text-center">
                 {/* Reward Status */}
                 <div className="mb-4">
-                  {!videoCompleted && (
-                    <p className="text-sm text-gray-600 mb-2">
-                      Watch the video to completion to earn PKR 10.00!
-                    </p>
-                  )}
-                  
-                  {videoCompleted && !rewardClaimed && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
-                      <CheckCircle className="inline h-4 w-4 mr-1 text-green-500" />
-                      <p className="text-sm text-green-700">
-                        Video completed! You can now claim your reward.
+                  {!rewardClaimed && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+                      <p className="text-sm text-yellow-700">
+                        You will earn PKR 10.00 immediately when you click "Watch Now"!
                       </p>
                     </div>
                   )}
@@ -993,16 +1001,7 @@ const WatchAdsPage = () => {
                   )}
                 </div>
 
-                {/* Claim Reward Button */}
-                {canClaimReward && !rewardClaimed && (
-                  <button
-                    onClick={claimReward}
-                    className="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors font-medium mb-4 flex items-center justify-center mx-auto"
-                  >
-                    <DollarSign className="h-4 w-4 mr-2" />
-                    Claim PKR 10.00 Reward
-                  </button>
-                )}
+                {/* Reward is automatically given when user clicks "Watch Now" */}
                 
                 {/* Debug info for development */}
                 {process.env.NODE_ENV === 'development' && (

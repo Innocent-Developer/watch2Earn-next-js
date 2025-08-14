@@ -168,6 +168,11 @@ export const updateUserBalance = async (uid: number, amount: number): Promise<an
   try {
     console.log('Updating balance for UID:', uid, 'Amount:', amount)
 
+    // Validate inputs before sending
+    if (!uid || typeof amount !== 'number') {
+      throw new Error('Invalid UID or amount provided')
+    }
+
     const response = await fetch(`${API_BASE_URL}/auto/update/balance`, {
       method: 'POST',
       headers: {
@@ -180,15 +185,32 @@ export const updateUserBalance = async (uid: number, amount: number): Promise<an
     console.log('Balance update response status:', response.status)
 
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Balance update error:', errorText)
-      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
+      let errorMessage = `HTTP error! status: ${response.status}`
+      try {
+        const errorData = await response.json()
+        errorMessage = errorData.message || errorMessage
+      } catch {
+        const errorText = await response.text()
+        errorMessage = errorText || errorMessage
+      }
+      console.error('Balance update error:', errorMessage)
+      throw new Error(errorMessage)
     }
 
     const data = await response.json()
     console.log('Balance update response:', data)
 
-    return data
+    // Validate response format
+    if (data.message === 'Balance updated successfully') {
+      return {
+        success: true,
+        message: data.message,
+        uid: data.uid,
+        newBalance: data.newBalance
+      }
+    } else {
+      throw new Error(data.message || 'Unexpected response format')
+    }
   } catch (error) {
     console.error('Error updating user balance:', error)
     throw error
@@ -205,6 +227,11 @@ export const autoUpdateUserBalance = async (uid: number, amount: number = 1): Pr
   try {
     console.log('Auto updating balance for UID:', uid, 'Amount:', amount)
 
+    // Validate inputs before sending
+    if (!uid || typeof amount !== 'number') {
+      throw new Error('Invalid UID or amount provided')
+    }
+
     const response = await fetch(`${API_BASE_URL}/auto/update/balance`, {
       method: 'POST',
       headers: {
@@ -217,15 +244,32 @@ export const autoUpdateUserBalance = async (uid: number, amount: number = 1): Pr
     console.log('Auto balance update response status:', response.status)
 
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Auto balance update error:', errorText)
-      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
+      let errorMessage = `HTTP error! status: ${response.status}`
+      try {
+        const errorData = await response.json()
+        errorMessage = errorData.message || errorMessage
+      } catch {
+        const errorText = await response.text()
+        errorMessage = errorText || errorMessage
+      }
+      console.error('Auto balance update error:', errorMessage)
+      throw new Error(errorMessage)
     }
 
     const data = await response.json()
     console.log('Auto balance update response:', data)
 
-    return data
+    // Validate response format
+    if (data.message === 'Balance updated successfully') {
+      return {
+        success: true,
+        message: data.message,
+        uid: data.uid,
+        newBalance: data.newBalance
+      }
+    } else {
+      throw new Error(data.message || 'Unexpected response format')
+    }
   } catch (error) {
     console.error('Error auto updating user balance:', error)
     throw error

@@ -106,12 +106,13 @@ const WalletPageContent = () => {
     const totalWithdrawals = parseFloat(userToUse.totalWithdrawals?.toString() || '0')
     
     // Current balance = total balance - total withdrawals
-    const currentBalance = totalBalance - totalWithdrawals
+    const currentBalance = totalWithdrawals - totalBalance
+    const totalWithdraw = totalWithdrawals 
 
     return {
       currentBalance: currentBalance.toFixed(2),
       totalBalance: totalBalance.toFixed(2),
-      totalWithdraw: totalWithdrawals.toFixed(2),
+      totalWithdraw: totalWithdraw.toFixed(2),
     }
   }
 
@@ -124,14 +125,14 @@ const WalletPageContent = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-primary text-white p-6 rounded-xl shadow-lg flex flex-col items-start transition-transform transform hover:scale-105">
           <CreditCard className="h-10 w-10 mb-2 opacity-75" />
-          <p className="text-sm font-light">Current Balance</p>
+          <p className="text-sm font-light">Total Balance</p>
           <h3 className="text-2xl font-bold">
             {isBalanceLoading ? '...' : `PKR ${balanceData.currentBalance}`}
           </h3>
         </div>
         <div className="bg-purple-500 text-white p-6 rounded-xl shadow-lg flex flex-col items-start transition-transform transform hover:scale-105">
           <TrendingUp className="h-10 w-10 mb-2 opacity-75" />
-          <p className="text-sm font-light">Total Balance</p>
+          <p className="text-sm font-light">  Current Balance</p>
           <h3 className="text-2xl font-bold">
             {isBalanceLoading ? '...' : `PKR ${balanceData.totalBalance}`}
           </h3>
