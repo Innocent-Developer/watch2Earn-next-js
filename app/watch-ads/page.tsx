@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Video, Play, Clock, DollarSign, AlertTriangle, CheckCircle, X, Pause } from 'lucide-react'
-import { getUserData, UserData } from '../utils/userStorage'
+import { Video, Play, Clock, DollarSign, AlertTriangle, CheckCircle, X, Pause, Gift } from 'lucide-react'
+import { getUserData, UserData, setUserData } from '../utils/userStorage'
+import { updateUserBalance, recordAdsEarning, getUserProfile, autoUpdateUserBalance } from '../utils/api'
 
 interface Ad {
   _id: string
@@ -36,6 +37,10 @@ interface WatchHistory {
   [adId: string]: number // timestamp when ad was watched
 }
 
+interface DailyVisits {
+  [date: string]: boolean // track daily visits for auto-update
+}
+
 const WatchAdsPage = () => {
   const router = useRouter()
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -51,6 +56,11 @@ const WatchAdsPage = () => {
   const [showVideoModal, setShowVideoModal] = useState(false)
   const [balanceUpdateStatus, setBalanceUpdateStatus] = useState<'idle' | 'updating' | 'success' | 'failed'>('idle')
   
+  // Auto-update states
+  const [autoUpdateStatus, setAutoUpdateStatus] = useState<'idle' | 'updating' | 'success' | 'failed'>('idle')
+  const [showAutoUpdateNotification, setShowAutoUpdateNotification] = useState(false)
+  const [autoUpdateAmount, setAutoUpdateAmount] = useState(0)
+  
   // Video states
   const [videoProgress, setVideoProgress] = useState(0)
   const [videoDuration, setVideoDuration] = useState(0)
@@ -64,17 +74,17 @@ const WatchAdsPage = () => {
 
   const fetchUserData = async (uid: number) => {
     try {
-      const response = await fetch(`https://watch2earn-vie97.ondigitalocean.app/api/admin/user/${uid}`)
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+      const profile = await getUserProfile(uid)
+      setUserData(profile)
+      
+      // Update localStorage with fresh data
+      const currentUser = getUserData()
+      if (currentUser && profile) {
+        const updatedUser = { ...currentUser, ...profile }
+        setUserData(updatedUser)
       }
-      const data = await response.json()
-      if (data.success) {
-        setUserData(data.data.user)
-        return data.data.user
-      } else {
-        throw new Error(data.message || 'Failed to fetch user data')
-      }
+      
+      return profile
     } catch (error) {
       console.error('Error fetching user data:', error)
       return null
@@ -96,6 +106,112 @@ const WatchAdsPage = () => {
     } catch (error) {
       console.error('Error fetching ads:', error)
       setError('Failed to load ads. Please try again later.')
+    }
+  }
+
+  // Daily visit tracking functions
+  const getDailyVisits = (): DailyVisits => {
+    if (typeof window === 'undefined') return {}
+    try {
+      const visits = localStorage.getItem('dailyAdsVisits')
+      return visits ? JSON.parse(visits) : {}
+    } catch (error) {
+      console.error('Error parsing daily visits:', error)
+      return {}
+    }
+  }
+
+  const saveDailyVisit = (date: string) => {
+    if (typeof window === 'undefined') return
+    try {
+      const visits = getDailyVisits()
+      visits[date] = true
+      localStorage.setItem('dailyAdsVisits', JSON.stringify(visits))
+    } catch (error) {
+      console.error('Error saving daily visit:', error)
+    }
+  }
+
+  const hasVisitedToday = (): boolean => {
+    const today = new Date().toDateString()
+    const visits = getDailyVisits()
+    return visits[today] === true
+  }
+
+  // Auto update balance when user visits ads page
+  const performAutoUpdate = async (uid: number) => {
+    if (hasVisitedToday()) {
+      console.log('User already received daily visit bonus')
+      return
+    }
+
+    try {
+      setAutoUpdateStatus('updating')
+      console.log('Performing auto balance update for daily visit...')
+      
+      const autoUpdateAmount = 1 // PKR 1 for visiting ads page
+      const response = await autoUpdateUserBalance(uid, autoUpdateAmount)
+      
+      if (response && response.message === 'Balance updated successfully') {
+        setAutoUpdateStatus('success')
+        setAutoUpdateAmount(autoUpdateAmount)
+        setShowAutoUpdateNotification(true)
+        
+        // Update local user data
+        if (userData) {
+          const newBalance = response.newBalance || (parseFloat(userData.totalBalance || '0') + autoUpdateAmount).toFixed(2)
+          setUserData((prev: any) => ({
+            ...prev,
+            totalBalance: newBalance
+          }))
+          
+          // Update localStorage
+          const currentUser = getUserData()
+          if (currentUser) {
+            const updatedUser = { ...currentUser, totalBalance: newBalance }
+            setUserData(updatedUser)
+          }
+        }
+        
+        // Save daily visit
+        const today = new Date().toDateString()
+        saveDailyVisit(today)
+        
+        // Hide notification after 5 seconds
+        setTimeout(() => {
+          setShowAutoUpdateNotification(false)
+        }, 5000)
+        
+        console.log(`Auto balance update successful: +PKR ${autoUpdateAmount}`)
+      } else {
+        setAutoUpdateStatus('failed')
+        console.error('Auto balance update failed')
+      }
+    } catch (error) {
+      console.error('Error in auto balance update:', error)
+      setAutoUpdateStatus('failed')
+      
+      // Fallback: update local balance
+      if (userData) {
+        const autoUpdateAmount = 1
+        const newBalance = (parseFloat(userData.totalBalance || '0') + autoUpdateAmount).toFixed(2)
+        setUserData((prev: any) => ({
+          ...prev,
+          totalBalance: newBalance
+        }))
+        setAutoUpdateAmount(autoUpdateAmount)
+        setShowAutoUpdateNotification(true)
+        
+        // Save daily visit even on API failure
+        const today = new Date().toDateString()
+        saveDailyVisit(today)
+        
+        setTimeout(() => {
+          setShowAutoUpdateNotification(false)
+        }, 5000)
+        
+        console.log(`Auto balance updated locally as fallback: +PKR ${autoUpdateAmount}`)
+      }
     }
   }
 
@@ -136,84 +252,68 @@ const WatchAdsPage = () => {
   }
 
   const checkEligibility = (user: UserData, apiUserData: any) => {
-    // Check if user is pro (plan === "pro") and has balance > 1
+    // Check if user is pro (plan === "pro") - no balance condition required
     const userPlan = apiUserData?.plan || user?.plan || 'basic'
-    const userBalance = parseFloat(apiUserData?.totalBalance || user?.totalBalance || '0')
     
     const isPro = userPlan === 'pro'
-    const hasEnoughBalance = userBalance > 1
     
-    return isPro && hasEnoughBalance
+    return isPro
   }
 
-  // Simulate balance update locally since API is blocked
-  const simulateBalanceUpdate = async (uid: number, amount: number) => {
+  // Updated balance update function using the new API
+  const handleBalanceUpdate = async (uid: number, amount: number, adId: string) => {
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500))
+      setBalanceUpdateStatus('updating')
+      console.log('Updating balance for UID:', uid, 'Amount:', amount)
       
-      // Update local balance
+      // Update balance via API
+      const balanceResponse = await updateUserBalance(uid, amount)
+      console.log('Balance update response:', balanceResponse)
+      
+      // Record ads earning for tracking
+      try {
+        await recordAdsEarning({
+          uid: uid,
+          adId: adId,
+          amount: amount
+        })
+        console.log('Ads earning recorded successfully')
+      } catch (earningError) {
+        console.warn('Failed to record ads earning, but balance was updated:', earningError)
+      }
+      
+      // Update local user data
+      if (balanceResponse && userData) {
+        const newBalance = balanceResponse.newBalance || (parseFloat(userData.totalBalance || '0') + amount).toFixed(2)
+        setUserData((prev: any) => ({
+          ...prev,
+          totalBalance: newBalance
+        }))
+        
+        // Update localStorage
+        const currentUser = getUserData()
+        if (currentUser) {
+          const updatedUser = { ...currentUser, totalBalance: newBalance }
+          setUserData(updatedUser)
+        }
+      }
+      
+      setBalanceUpdateStatus('success')
+      console.log(`Balance updated successfully: +PKR ${amount}`)
+      return true
+      
+    } catch (error) {
+      console.error('Error updating balance:', error)
+      setBalanceUpdateStatus('failed')
+      
+      // Fallback: update local balance even if API fails
       if (userData) {
         const newBalance = (parseFloat(userData.totalBalance || '0') + amount).toFixed(2)
         setUserData((prev: any) => ({
           ...prev,
           totalBalance: newBalance
         }))
-        console.log(`Balance updated locally: +PKR ${amount}, New balance: PKR ${newBalance}`)
-        return true
-      }
-      return false
-    } catch (error) {
-      console.error('Error simulating balance update:', error)
-      return false
-    }
-  }
-
-  const updateUserBalance = async (uid: number, amount: number) => {
-    try {
-      console.log('Attempting to update balance for UID:', uid, 'Amount:', amount)
-      
-      const response = await fetch('https://watch2earn-vie97.ondigitalocean.app/api/auto/update/balance', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({ uid, amount }),
-        signal: AbortSignal.timeout(10000), // 10 second timeout
-      })
-
-      console.log('Response status:', response.status)
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('Response error text:', errorText)
-        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
-      }
-
-      const data = await response.json()
-      console.log('Response data:', data)
-      
-      if (data.message === 'Balance updated successfully') {
-        // Update local user data with new balance from API
-        if (userData) {
-          setUserData((prev: any) => ({
-            ...prev,
-            totalBalance: data.newBalance
-          }))
-        }
-        console.log(`Balance updated successfully via API: +PKR ${amount}, New balance: PKR ${data.newBalance}`)
-        return true
-      } else {
-        throw new Error(data.message || 'Failed to update balance')
-      }
-    } catch (error) {
-      console.error('Error updating balance:', error)
-      
-      // If API fails, fallback to local simulation
-      if (error instanceof Error && (error.message.includes('Failed to fetch') || error.message.includes('timeout'))) {
-        console.warn('API failed - falling back to local simulation')
-        return await simulateBalanceUpdate(uid, amount)
+        console.log(`Balance updated locally as fallback: +PKR ${amount}, New balance: PKR ${newBalance}`)
       }
       
       return false
@@ -343,24 +443,19 @@ const WatchAdsPage = () => {
     if (!canClaimReward || rewardClaimed || !selectedAd || !user?.uid) return
 
     setRewardClaimed(true)
-    setBalanceUpdateStatus('updating')
 
     try {
-      const balanceUpdated = await updateUserBalance(user.uid, 1)
+      const balanceUpdated = await handleBalanceUpdate(user.uid, 10, selectedAd._id)
       if (balanceUpdated) {
-        setBalanceUpdateStatus('success')
-        
         // Save watch history
         saveWatchHistory(selectedAd._id)
         setWatchCount(prev => prev + 1)
         
         console.log('Reward claimed successfully')
       } else {
-        setBalanceUpdateStatus('failed')
         console.error('Failed to claim reward')
       }
     } catch (error) {
-      setBalanceUpdateStatus('failed')
       console.error('Reward claim failed:', error)
     }
   }
@@ -579,6 +674,11 @@ const WatchAdsPage = () => {
       // Get today's watch count
       const todayCount = getTodayWatchCount()
       setWatchCount(todayCount)
+
+      // Perform auto-update if user has visited today
+      if (localUserData.uid) {
+        await performAutoUpdate(localUserData.uid)
+      }
       
       setIsLoading(false)
     }
@@ -666,16 +766,12 @@ const WatchAdsPage = () => {
           <div className="text-center">
             <h2 className="text-xl font-bold text-yellow-800 mb-2">Not Eligible</h2>
             <p className="text-yellow-700 mb-4">
-              You need to meet the following requirements to watch ads:
+              You need to be a Pro user to watch ads and earn money:
             </p>
             <div className="space-y-2 text-sm text-yellow-700">
               <div className="flex items-center justify-center space-x-2">
                 <CheckCircle className="h-4 w-4" />
                 <span>Be a Pro user (plan = &quot;pro&quot;)</span>
-              </div>
-              <div className="flex items-center justify-center space-x-2">
-                <CheckCircle className="h-4 w-4" />
-                <span>Have a balance greater than PKR 1</span>
               </div>
             </div>
             <div className="mt-6 p-4 bg-white rounded-lg">
@@ -694,29 +790,76 @@ const WatchAdsPage = () => {
 
   return (
     <div className="space-y-6">
+      {/* Auto-update notification */}
+      {showAutoUpdateNotification && (
+        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white p-4 rounded-lg shadow-lg flex items-center space-x-3 animate-pulse">
+          <Gift className="h-6 w-6" />
+          <div>
+            <p className="font-medium">Daily Visit Bonus!</p>
+            <p className="text-sm">You earned PKR {autoUpdateAmount} for visiting ads today!</p>
+          </div>
+          <button
+            onClick={() => setShowAutoUpdateNotification(false)}
+            className="text-white hover:text-gray-200"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      )}
+
       <div className="text-center">
         <h1 className="text-2xl font-bold text-gray-800">Watch Ads</h1>
         <p className="mt-2 text-lg text-gray-600">Earn money by watching ads</p>
+        {autoUpdateStatus === 'success' && !showAutoUpdateNotification && (
+          <p className="mt-1 text-sm text-green-600">✓ Daily visit bonus already claimed today</p>
+        )}
       </div>
 
-      {/* Daily limit indicator */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Clock className="h-5 w-5 text-blue-500" />
-            <span className="text-blue-700 font-medium">Daily Progress</span>
+      {/* Daily progress and bonus info */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Daily limit indicator */}
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Clock className="h-5 w-5 text-blue-500" />
+              <span className="text-blue-700 font-medium">Daily Ads Progress</span>
+            </div>
+            <div className="text-right">
+              <span className="text-sm text-blue-600">
+                {watchCount} / {maxWatchesPerDay} ads watched
+              </span>
+            </div>
           </div>
-          <div className="text-right">
-            <span className="text-sm text-blue-600">
-              {watchCount} / {maxWatchesPerDay} ads watched today
-            </span>
+          <div className="mt-2 w-full bg-blue-200 rounded-full h-2">
+            <div 
+              className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${(watchCount / maxWatchesPerDay) * 100}%` }}
+            ></div>
           </div>
         </div>
-        <div className="mt-2 w-full bg-blue-200 rounded-full h-2">
-          <div 
-            className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-            style={{ width: `${(watchCount / maxWatchesPerDay) * 100}%` }}
-          ></div>
+
+        {/* Daily visit bonus indicator */}
+        <div className={`border rounded-xl p-4 ${
+          hasVisitedToday() ? 'bg-green-50 border-green-200' : 'bg-purple-50 border-purple-200'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Gift className={`h-5 w-5 ${hasVisitedToday() ? 'text-green-500' : 'text-purple-500'}`} />
+              <span className={`font-medium ${hasVisitedToday() ? 'text-green-700' : 'text-purple-700'}`}>
+                Daily Visit Bonus
+              </span>
+            </div>
+            <div className="text-right">
+              <span className={`text-sm ${hasVisitedToday() ? 'text-green-600' : 'text-purple-600'}`}>
+                PKR 1.00
+              </span>
+            </div>
+          </div>
+          <div className="mt-2">
+            <p className={`text-xs ${hasVisitedToday() ? 'text-green-600' : 'text-purple-600'}`}>
+              {hasVisitedToday() ? '✓ Claimed today!' : 'Visit ads page daily to earn PKR 1'}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -779,7 +922,7 @@ const WatchAdsPage = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
                     <DollarSign className="h-4 w-4" />
-                    <span>Earn rewards</span>
+                    <span>Earn PKR 10.00</span>
                   </div>
                   <button
                     onClick={() => handleWatchAd(ad)}
@@ -819,7 +962,7 @@ const WatchAdsPage = () => {
                 <div className="mb-4">
                   {!videoCompleted && (
                     <p className="text-sm text-gray-600 mb-2">
-                      Watch the video to completion to earn PKR 1.00!
+                      Watch the video to completion to earn PKR 10.00!
                     </p>
                   )}
                   
@@ -835,7 +978,7 @@ const WatchAdsPage = () => {
                   {rewardClaimed && (
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
                       <p className="text-sm text-blue-700 mb-2">
-                        You earned PKR 1.00 for watching this ad!
+                        You earned PKR 10.00 for watching this ad!
                       </p>
                       {balanceUpdateStatus === 'updating' && (
                         <p className="text-sm text-blue-600">Updating balance...</p>
@@ -857,7 +1000,7 @@ const WatchAdsPage = () => {
                     className="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors font-medium mb-4 flex items-center justify-center mx-auto"
                   >
                     <DollarSign className="h-4 w-4 mr-2" />
-                    Claim PKR 1.00 Reward
+                    Claim PKR 10.00 Reward
                   </button>
                 )}
                 

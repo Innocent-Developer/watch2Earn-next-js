@@ -27,6 +27,7 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
     bankName: '',
     transactionId: '',
     senderName: '',
+    senderPhone: '',
     pic: ''
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -90,9 +91,9 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
       return
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Image size should be less than 5MB')
+    // Validate file size (max 2MB to avoid 413 error)
+    if (file.size > 2 * 1024 * 1024) {
+      setError('Image size should be less than 2MB')
       return
     }
 
@@ -105,35 +106,87 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
       setIsUploadingImage(true)
       setError('')
 
-      const formDataForUpload = new FormData()
-      formDataForUpload.append('image', file)
-
-      const response = await fetch('https://watch2earn-vie97.ondigitalocean.app/api/upload', {
-        method: 'POST',
-        body: formDataForUpload,
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to upload image')
-      }
-
-      const data = await response.json()
+      // Compress image before converting to base64
+      const compressedFile = await compressImage(file, 0.7) // 70% quality
+      const base64 = await convertFileToBase64(compressedFile)
       
-      if (data.url) {
-        setFormData(prev => ({
-          ...prev,
-          pic: data.url
-        }))
-      } else {
-        throw new Error('No URL returned from upload')
-      }
+      setFormData(prev => ({
+        ...prev,
+        pic: base64
+      }))
 
     } catch (err: any) {
-      setError(err.message || 'Failed to upload image')
+      setError(err.message || 'Failed to process image')
       setSelectedFile(null)
     } finally {
       setIsUploadingImage(false)
     }
+  }
+
+  // Helper function to compress image
+  const compressImage = (file: File, quality: number): Promise<File> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')!
+      const img = new Image()
+      
+      img.onload = () => {
+        // Calculate new dimensions (max 800px width/height)
+        const maxSize = 800
+        let { width, height } = img
+        
+        if (width > height) {
+          if (width > maxSize) {
+            height = (height * maxSize) / width
+            width = maxSize
+          }
+        } else {
+          if (height > maxSize) {
+            width = (width * maxSize) / height
+            height = maxSize
+          }
+        }
+        
+        canvas.width = width
+        canvas.height = height
+        
+        // Draw and compress
+        ctx.drawImage(img, 0, 0, width, height)
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const compressedFile = new File([blob], file.name, {
+                type: 'image/jpeg',
+                lastModified: Date.now()
+              })
+              resolve(compressedFile)
+            } else {
+              resolve(file)
+            }
+          },
+          'image/jpeg',
+          quality
+        )
+      }
+      
+      img.src = URL.createObjectURL(file)
+    })
+  }
+
+  // Helper function to convert file to base64
+  const convertFileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          resolve(reader.result)
+        } else {
+          reject(new Error('Failed to convert file to base64'))
+        }
+      }
+      reader.onerror = error => reject(error)
+    })
   }
 
   const copyToClipboard = async (text: string) => {
@@ -162,18 +215,17 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
         return
       }
 
-      if (!formData.pic) {
-        setError('Please upload a transaction screenshot')
-        return
-      }
-
       const response = await fetch('https://watch2earn-vie97.ondigitalocean.app/api/deposite', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...formData,
+          amount: formData.amount,
+          bankName: formData.bankName,
+          transactionId: formData.transactionId,
+          senderName: formData.senderName,
+          senderPhone: formData.senderPhone,
           uid: userData.uid
         }),
       })
@@ -191,6 +243,7 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
         bankName: '',
         transactionId: '',
         senderName: '',
+        senderPhone: '',
         pic: ''
       })
       setSelectedFile(null)
@@ -375,8 +428,23 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
           </div>
 
           <div>
+            <label htmlFor="senderPhone" className="block text-sm font-medium text-gray-700 mb-2">
+              Sender Phone Number
+            </label>
+            <input
+              type="tel"
+              id="senderPhone"
+              name="senderPhone"
+              value={formData.senderPhone}
+              onChange={handleInputChange}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+              placeholder="Enter sender's phone number"
+            />
+          </div>
+
+          <div>
             <label htmlFor="pic" className="block text-sm font-medium text-gray-700 mb-2">
-              Transaction Screenshot *
+              Transaction Screenshot (Optional)
             </label>
             <div className="space-y-3">
               <div className="flex items-center justify-center w-full">
@@ -386,7 +454,7 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
                     <p className="mb-2 text-sm text-gray-500">
                       <span className="font-semibold">Click to upload</span> transaction screenshot
                     </p>
-                    <p className="text-xs text-gray-500">PNG, JPG or JPEG (MAX. 5MB)</p>
+                    <p className="text-xs text-gray-500">PNG, JPG or JPEG (MAX. 2MB)</p>
                   </div>
                   <input
                     id="pic"
@@ -394,7 +462,6 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
                     accept="image/*"
                     onChange={handleFileChange}
                     className="hidden"
-                    required
                   />
                 </label>
               </div>
@@ -402,7 +469,7 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
               {isUploadingImage && (
                 <div className="flex items-center justify-center py-2">
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary mr-2"></div>
-                  <span className="text-sm text-gray-600">Uploading image...</span>
+                  <span className="text-sm text-gray-600">Processing image...</span>
                 </div>
               )}
               
@@ -414,7 +481,7 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-green-800">{selectedFile.name}</p>
-                      <p className="text-xs text-green-600">Upload successful</p>
+                      <p className="text-xs text-green-600">Image processed successfully</p>
                     </div>
                   </div>
                 </div>
@@ -428,8 +495,8 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
             <ol className="text-sm text-blue-700 space-y-1">
               <li>1. Copy our account number above</li>
               <li>2. Send the amount to our account</li>
-              <li>3. Take a screenshot of the transaction</li>
-              <li>4. Fill this form with transaction details and upload screenshot</li>
+              <li>3. Take a screenshot of the transaction (optional)</li>
+              <li>4. Fill this form with transaction details</li>
               <li>5. We will verify and credit within 24 hours</li>
             </ol>
           </div>
@@ -438,7 +505,7 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
           <div className="pt-4">
             <button
               type="submit"
-              disabled={isSubmitting || !selectedAccount || isUploadingImage || !formData.pic}
+              disabled={isSubmitting || !selectedAccount || isUploadingImage}
               className="w-full bg-primary text-white py-3 px-4 rounded-lg font-medium hover:bg-dark-purple focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
               {isSubmitting ? (
