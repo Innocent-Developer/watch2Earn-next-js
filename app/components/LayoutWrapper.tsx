@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation'
 import Header from './Header'
 import Footer from './Footer'
+import WhatsAppButton from './WhatsAppButton'
 
 interface LayoutWrapperProps {
   children: React.ReactNode
@@ -22,6 +23,7 @@ const LayoutWrapper = ({ children }: LayoutWrapperProps) => {
         {children}
       </main>
       {!isAuthPage && <Footer />}
+      {!isAuthPage && <WhatsAppButton />}
     </div>
   )
 }
