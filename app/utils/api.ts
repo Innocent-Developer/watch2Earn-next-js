@@ -485,4 +485,153 @@ export const isCachedDataStale = (): boolean => {
   const fiveMinutes = 5 * 60 * 1000 // 5 minutes in milliseconds
 
   return (now.getTime() - lastUpdated.getTime()) > fiveMinutes
+}
+
+// Team Management API Functions
+
+export interface TeamMember {
+  _id: string
+  name: string
+  uid: number
+  phoneNumber: string
+  email: string
+  plan: string
+  totalBalance: number
+  totalWithdrawals: number
+  totalInvites: number
+  level: number
+  createdAt: string
+}
+
+export interface TeamLeader {
+  name: string
+  uid: number
+  phoneNumber: string
+  email: string
+  plan: string
+  referralCode: string
+  totalBalance: number
+  totalInvites: number
+  level: number
+  joinedAt: string
+}
+
+export interface TeamStats {
+  totalMembers: number
+  activeMembers: number
+  totalTeamBalance: number
+  totalTeamWithdrawals: number
+  averageLevel: string
+}
+
+export interface TeamData {
+  teamLeader: TeamLeader
+  teamMembers: TeamMember[]
+  teamStats: TeamStats
+}
+
+/**
+ * Get team members by invite code (referral code)
+ * @param inviteCode - Team leader's referral code
+ * @returns Promise with team data including leader, members, and stats
+ */
+export const getTeamMembers = async (inviteCode: string): Promise<TeamData> => {
+  try {
+    console.log('Fetching team members for invite code:', inviteCode)
+
+    const response = await fetch(`${API_BASE_URL}/team/members/${encodeURIComponent(inviteCode)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
+    }
+
+    const data = await response.json()
+
+    if (data.success) {
+      return data.data
+    } else {
+      throw new Error(data.message || 'Failed to fetch team members')
+    }
+  } catch (error) {
+    console.error('Error fetching team members:', error)
+    throw error
+  }
+}
+
+/**
+ * Get team member details by UID and invite code
+ * @param inviteCode - Team leader's referral code
+ * @param uid - Team member's UID
+ * @returns Promise with team member details
+ */
+export const getTeamMemberDetails = async (inviteCode: string, uid: number): Promise<any> => {
+  try {
+    console.log('Fetching team member details for UID:', uid, 'Invite code:', inviteCode)
+
+    const response = await fetch(`${API_BASE_URL}/team/members/${encodeURIComponent(inviteCode)}/${uid}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
+    }
+
+    const data = await response.json()
+
+    if (data.success) {
+      return data.data
+    } else {
+      throw new Error(data.message || 'Failed to fetch team member details')
+    }
+  } catch (error) {
+    console.error('Error fetching team member details:', error)
+    throw error
+  }
+}
+
+/**
+ * Get team hierarchy (multi-level team structure)
+ * @param inviteCode - Team leader's referral code
+ * @returns Promise with team hierarchy including direct and indirect members
+ */
+export const getTeamHierarchy = async (inviteCode: string): Promise<any> => {
+  try {
+    console.log('Fetching team hierarchy for invite code:', inviteCode)
+
+    const response = await fetch(`${API_BASE_URL}/team/hierarchy/${encodeURIComponent(inviteCode)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
+    }
+
+    const data = await response.json()
+
+    if (data.success) {
+      return data.data
+    } else {
+      throw new Error(data.message || 'Failed to fetch team hierarchy')
+    }
+  } catch (error) {
+    console.error('Error fetching team hierarchy:', error)
+    throw error
+  }
 } 
