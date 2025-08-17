@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { X, Copy, CreditCard, DollarSign, Upload } from 'lucide-react'
 import { getUserData } from '../utils/userStorage'
+import axios from 'axios'
 
 interface DepositModalProps {
   isOpen: boolean
@@ -23,7 +24,7 @@ interface AccountInfo {
 
 const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
   const [formData, setFormData] = useState({
-    amount: '',
+    amount: '400',
     bankName: '',
     transactionId: '',
     senderName: '',
@@ -75,6 +76,10 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
+    // Prevent amount field from being changed
+    if (name === 'amount') {
+      return
+    }
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -91,102 +96,41 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
       return
     }
 
-    // Validate file size (max 2MB to avoid 413 error)
-    if (file.size > 2 * 1024 * 1024) {
-      setError('Image size should be less than 2MB')
+    // Validate file size (max 10MB for cloudinary)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Image size should be less than 10MB')
       return
     }
 
     setSelectedFile(file)
-    await uploadImageToR2(file)
+    await uploadImageToCloudinary(file)
   }
 
-  const uploadImageToR2 = async (file: File) => {
-    try {
-      setIsUploadingImage(true)
-      setError('')
+  const uploadImageToCloudinary = async (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('upload_preset', 'blackstome')
+    setIsUploadingImage(true)
+    setError('')
 
-      // Compress image before converting to base64
-      const compressedFile = await compressImage(file, 0.7) // 70% quality
-      const base64 = await convertFileToBase64(compressedFile)
+    try {
+      const res = await axios.post(
+        'https://api.cloudinary.com/v1_1/dha65z0gy/image/upload',
+        formData
+      )
       
       setFormData(prev => ({
         ...prev,
-        pic: base64
+        pic: res.data.secure_url
       }))
 
     } catch (err: any) {
-      setError(err.message || 'Failed to process image')
+      console.error('Image upload failed:', err)
+      setError('Image upload failed')
       setSelectedFile(null)
     } finally {
       setIsUploadingImage(false)
     }
-  }
-
-  // Helper function to compress image
-  const compressImage = (file: File, quality: number): Promise<File> => {
-    return new Promise((resolve) => {
-      const canvas = document.createElement('canvas')
-      const ctx = canvas.getContext('2d')!
-      const img = new Image()
-      
-      img.onload = () => {
-        // Calculate new dimensions (max 800px width/height)
-        const maxSize = 800
-        let { width, height } = img
-        
-        if (width > height) {
-          if (width > maxSize) {
-            height = (height * maxSize) / width
-            width = maxSize
-          }
-        } else {
-          if (height > maxSize) {
-            width = (width * maxSize) / height
-            height = maxSize
-          }
-        }
-        
-        canvas.width = width
-        canvas.height = height
-        
-        // Draw and compress
-        ctx.drawImage(img, 0, 0, width, height)
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              const compressedFile = new File([blob], file.name, {
-                type: 'image/jpeg',
-                lastModified: Date.now()
-              })
-              resolve(compressedFile)
-            } else {
-              resolve(file)
-            }
-          },
-          'image/jpeg',
-          quality
-        )
-      }
-      
-      img.src = URL.createObjectURL(file)
-    })
-  }
-
-  // Helper function to convert file to base64
-  const convertFileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          resolve(reader.result)
-        } else {
-          reject(new Error('Failed to convert file to base64'))
-        }
-      }
-      reader.onerror = error => reject(error)
-    })
   }
 
   const copyToClipboard = async (text: string) => {
@@ -226,6 +170,7 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
           transactionId: formData.transactionId,
           senderName: formData.senderName,
           senderPhone: formData.senderPhone,
+          pic: formData.pic,
           uid: userData.uid
         }),
       })
@@ -239,7 +184,7 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
       alert('Deposit request submitted successfully! We will verify and credit your account within 24 hours.')
       onClose()
       setFormData({
-        amount: '',
+        amount: '400',
         bankName: '',
         transactionId: '',
         senderName: '',
@@ -273,82 +218,6 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
           </button>
         </div>
 
-        {/* Account Details Section */}
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Our Account Details</h3>
-          
-          {isLoadingAccounts ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-              <span className="ml-3 text-gray-600">Loading account information...</span>
-            </div>
-          ) : accountInfo.length > 0 ? (
-            <div className="space-y-4">
-              {/* Account Selection */}
-              {accountInfo.length > 1 && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Account
-                  </label>
-                  <select
-                    value={selectedAccount?.id || ''}
-                    onChange={(e) => {
-                      const account = accountInfo.find(acc => acc.id === e.target.value)
-                      if (account) setSelectedAccount(account)
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
-                  >
-                    {accountInfo.map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.bankName} - {account.accountHolderName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Selected Account Details */}
-              {selectedAccount && (
-                <div className="space-y-3">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-600">Account Number</span>
-                      <button
-                        onClick={() => copyToClipboard(selectedAccount.accountNumber)}
-                        className="text-primary hover:text-dark-purple transition-colors"
-                      >
-                        <Copy className="h-4 w-4" />
-                      </button>
-                    </div>
-                    <p className="text-lg font-bold text-gray-800">{selectedAccount.accountNumber}</p>
-                    {copied && <p className="text-xs text-green-600 mt-1">Copied to clipboard!</p>}
-                  </div>
-                  
-                  <div className="grid grid-cols-1 gap-3">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Account Holder Name</p>
-                      <p className="font-semibold text-gray-800">{selectedAccount.accountHolderName}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Bank Name</p>
-                      <p className="font-semibold text-gray-800">{selectedAccount.bankName}</p>
-                    </div>
-                    {selectedAccount.isActive && (
-                      <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 w-fit">
-                        Active Account
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-4 text-gray-500">
-              <p>No account information available</p>
-            </div>
-          )}
-        </div>
-
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {error && (
@@ -368,11 +237,14 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
               value={formData.amount}
               onChange={handleInputChange}
               required
-              min="1"
+              min="400"
+              max="400"
               step="1"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-              placeholder="Enter amount"
+              readOnly
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
+              placeholder="Fixed amount: 400"
             />
+            <p className="text-xs text-gray-500 mt-1">Deposit amount is fixed at PKR 400</p>
           </div>
 
           <div>
@@ -454,7 +326,7 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
                     <p className="mb-2 text-sm text-gray-500">
                       <span className="font-semibold">Click to upload</span> transaction screenshot
                     </p>
-                    <p className="text-xs text-gray-500">PNG, JPG or JPEG (MAX. 2MB)</p>
+                    <p className="text-xs text-gray-500">PNG, JPG or JPEG (MAX. 10MB)</p>
                   </div>
                   <input
                     id="pic"
@@ -469,7 +341,7 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
               {isUploadingImage && (
                 <div className="flex items-center justify-center py-2">
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary mr-2"></div>
-                  <span className="text-sm text-gray-600">Processing image...</span>
+                  <span className="text-sm text-gray-600">Uploading image...</span>
                 </div>
               )}
               
@@ -481,7 +353,7 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-green-800">{selectedFile.name}</p>
-                      <p className="text-xs text-green-600">Image processed successfully</p>
+                      <p className="text-xs text-green-600">Image uploaded successfully</p>
                     </div>
                   </div>
                 </div>
@@ -494,7 +366,7 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
             <h4 className="font-semibold text-blue-800 mb-2">Instructions:</h4>
             <ol className="text-sm text-blue-700 space-y-1">
               <li>1. Copy our account number above</li>
-              <li>2. Send the amount to our account</li>
+              <li>2. Send exactly PKR 400 to our account</li>
               <li>3. Take a screenshot of the transaction (optional)</li>
               <li>4. Fill this form with transaction details</li>
               <li>5. We will verify and credit within 24 hours</li>
@@ -505,7 +377,7 @@ const DepositModal = ({ isOpen, onClose }: DepositModalProps) => {
           <div className="pt-4">
             <button
               type="submit"
-              disabled={isSubmitting || !selectedAccount || isUploadingImage}
+              disabled={isSubmitting || isUploadingImage}
               className="w-full bg-primary text-white py-3 px-4 rounded-lg font-medium hover:bg-dark-purple focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
               {isSubmitting ? (
