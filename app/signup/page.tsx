@@ -18,7 +18,7 @@ const SignupPageContent = () => {
     phoneNumber: '',
     password: '',
     confirmPassword: '',
-    referralCode: '',
+    inviteCode: '',
     agreeToTerms: false
   })
   const [isLoading, setIsLoading] = useState(false)
@@ -38,7 +38,7 @@ const SignupPageContent = () => {
     if (refCode) {
       setFormData(prev => ({
         ...prev,
-        referralCode: refCode
+        inviteCode: refCode
       }))
       setIsInviteCodeFromUrl(true)
     }
@@ -58,7 +58,7 @@ const SignupPageContent = () => {
     const { name, value, type, checked } = e.target
     
     // Prevent editing referral code if it came from URL
-    if (name === 'referralCode' && isInviteCodeFromUrl) {
+    if (name === 'inviteCode' && isInviteCodeFromUrl) {
       return
     }
     
@@ -117,7 +117,7 @@ const SignupPageContent = () => {
       email: formData.email,
       phoneNumber: formData.phoneNumber,
       password: formData.password,
-      referralCode: formData.referralCode || undefined
+      inviteCode: formData.inviteCode || undefined
     }
 
     console.log('Sending signup request:', requestData)
@@ -174,10 +174,10 @@ const SignupPageContent = () => {
           <p className="text-gray-600">
             Join UK ADS and start earning
           </p>
-          {formData.referralCode && isInviteCodeFromUrl && (
+          {formData.inviteCode && isInviteCodeFromUrl && (
             <div className="mt-2 flex items-center justify-center text-sm text-primary">
               <Gift className="h-4 w-4 mr-1" />
-              <span>Referred by: {formData.referralCode}</span>
+              <span>Referred by: {formData.inviteCode}</span>
             </div>
           )}
         </div>
@@ -255,24 +255,24 @@ const SignupPageContent = () => {
               </div>
             </div>
 
-            {/* Referral Code Field */}
+            {/* Invite Code Field */}
             <div className="relative">
-              <label htmlFor="referralCode" className="block text-sm font-medium text-gray-700 mb-2">
-                Referral Code {isInviteCodeFromUrl ? '(Auto-filled)' : '(Optional)'}
+              <label htmlFor="inviteCode" className="block text-sm font-medium text-gray-700 mb-2">
+                Invite Code {isInviteCodeFromUrl ? '(Auto-filled)' : '(Optional)'}
               </label>
               <div className="relative">
                 <Gift className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <input
-                  id="referralCode"
-                  name="referralCode"
+                  id="inviteCode"
+                  name="inviteCode"
                   type="text"
-                  value={formData.referralCode}
+                  value={formData.inviteCode}
                   onChange={handleInputChange}
                   readOnly={isInviteCodeFromUrl}
                   className={`w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors ${
                     isInviteCodeFromUrl ? 'bg-gray-100 cursor-not-allowed' : ''
                   }`}
-                  placeholder={isInviteCodeFromUrl ? "Referral code applied" : "Enter referral code (optional)"}
+                  placeholder={isInviteCodeFromUrl ? "Invite code applied" : "Enter invite code (optional)"}
                 />
                 {isInviteCodeFromUrl && (
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
