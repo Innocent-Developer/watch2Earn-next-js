@@ -10,7 +10,25 @@ import { getUserData } from './userStorage'
  * @returns The complete referral link
  */
 export const generateReferralLink = (inviteCode: string, baseUrl: string = window.location.origin): string => {
-  return `${baseUrl}/signup/ref=${encodeURIComponent(inviteCode)}`
+  // Use query parameter approach for better compatibility
+  return `${baseUrl}/signup?ref=${encodeURIComponent(inviteCode)}`
+}
+
+/**
+ * Generate alternative referral links
+ * @param inviteCode - The user's invite code
+ * @param baseUrl - The base URL for the application
+ * @returns Object with different referral link formats
+ */
+export const generateReferralLinks = (inviteCode: string, baseUrl: string = window.location.origin) => {
+  return {
+    // Main recommended format
+    queryParam: `${baseUrl}/signup?ref=${encodeURIComponent(inviteCode)}`,
+    // Alternative path format
+    pathParam: `${baseUrl}/signup/${encodeURIComponent(inviteCode)}`,
+    // Short format for sharing
+    short: `${baseUrl}/signup/${encodeURIComponent(inviteCode)}`
+  }
 }
 
 /**
@@ -24,13 +42,13 @@ export const extractReferralCode = (url: string): string | null => {
   if (refMatch && refMatch[1]) {
     return decodeURIComponent(refMatch[1])
   }
-  
+
   // Try to match as path parameter
   const pathMatch = url.match(/\/ref\/([^\/\?]+)/)
   if (pathMatch && pathMatch[1]) {
     return decodeURIComponent(pathMatch[1])
   }
-  
+
   return null
 }
 
@@ -77,12 +95,12 @@ export const copyReferralLink = async (inviteCode: string): Promise<void> => {
  * @returns Promise that resolves when shared
  */
 export const shareReferralLink = async (
-  inviteCode: string, 
-  title: string = 'Join UK ADS', 
+  inviteCode: string,
+  title: string = 'Join UK ADS',
   text: string = 'Join UK ADS and start earning with my referral code!'
 ): Promise<void> => {
   const link = generateReferralLink(inviteCode)
-  
+
   if (navigator.share) {
     try {
       await navigator.share({
@@ -98,7 +116,7 @@ export const shareReferralLink = async (
     // Fallback to copying to clipboard
     await copyReferralLink(inviteCode)
   }
-} 
+}
 
 /**
  * Fetch referral data from API for current user
@@ -107,7 +125,7 @@ export const shareReferralLink = async (
  * @returns Promise with referral data
  */
 export const fetchUserReferralData = async (
-  uid: string, 
+  uid: string,
   forceRefresh: boolean = false
 ): Promise<ReferralData | null> => {
   try {
@@ -131,10 +149,10 @@ export const getReferralStats = async (uid: string): Promise<{
 } | null> => {
   try {
     const referralData = await getUserReferrals(uid)
-    
+
     const activeReferrals = referralData.invitedUsers.filter(user => user.status === 'active').length
     const inactiveReferrals = referralData.invitedUsers.filter(user => user.status === 'inactive').length
-    
+
     return {
       totalReferrals: referralData.totalReferrals,
       totalEarnings: referralData.totalEarnings,
@@ -154,12 +172,12 @@ export const getReferralStats = async (uid: string): Promise<{
  * @returns Promise with recent referral data
  */
 export const getRecentReferrals = async (
-  uid: string, 
+  uid: string,
   limit: number = 5
 ): Promise<ReferralData['invitedUsers'] | null> => {
   try {
     const referralData = await getUserReferrals(uid)
-    
+
     // Sort by joined date (most recent first) and limit results
     return referralData.invitedUsers
       .sort((a, b) => new Date(b.joinedAt).getTime() - new Date(a.joinedAt).getTime())
